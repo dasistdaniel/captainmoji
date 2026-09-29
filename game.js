@@ -20,6 +20,7 @@ const PLAYER_BASE = { maxHp: 10, ammo: 3, meleeDmg: 2, blasterDmg: 3, blasterRan
 // Boni der reparierten Stationen
 const SHIELD_RECHARGE = 15; // Züge, bis der Schild nach einem abgefangenen Treffer wieder bereit ist
 const REGEN_EVERY = 12;     // alle n Züge +1 ❤️
+const ELEVATOR_MIN_ROOMS = 2; // so viele Räume liegt der Aufzug mindestens von der Station entfernt
 
 // Sauerstoff (Decks mit `oxygen`)
 const O2_MAX = 100;
@@ -179,8 +180,17 @@ function loadDeck(cfg) {
   G.station = { x: rooms[far].cx, y: rooms[far].cy, type: cfg.station, repaired: false, room: far };
 
   rooms.forEach((r, i) => { r.theme = i === 0 ? cfg.startTheme : i === far ? cfg.stationTheme : pick(cfg.themes); });
-  // Aufzug zum nächsten Deck – erst nutzbar, wenn die Station repariert ist
-  if (!tryPlaceProp(far, 'elevator', false, 200)) tryPlaceProp(far, 'elevator', true, 200);
+  // Aufzug zum nächsten Deck – in einem eigenen Raum, mindestens `elevatorMinRooms` von der Station
+  // entfernt, damit man nach der Reparatur noch einmal durchs Deck muss. Erst nach der Reparatur nutzbar.
+  const fromStation = roomHops(far);
+  const liftRooms = rooms.map((r, i) => i).filter(i => i !== 0 && i !== far);
+  const maxFromStation = Math.max(...liftRooms.map(i => fromStation[i]));
+  const liftCandidates = liftRooms.filter(i => fromStation[i] >= Math.min(ELEVATOR_MIN_ROOMS, maxFromStation));
+  G.elevatorRoom = pick(liftCandidates.length ? liftCandidates : [far]);
+  for (const scatter of [false, true]) {
+    if (tryPlaceProp(G.elevatorRoom, 'elevator', scatter, 200)) break;
+  }
+  G.elevator = [...G.props.values()].find(pr => pr.type === 'elevator');
   if (cfg.oxygen) {
     // eine O₂-Station immer im Startraum, damit man sie kennenlernt
     tryPlaceProp(0, 'o2', false, 80);
@@ -192,7 +202,8 @@ function loadDeck(cfg) {
   if (cfg.oxygen) placeLeaks(rand(...cfg.oxygen.leaks));
 
   // Zielitem weder im Start- noch im Stationsraum und mindestens `goalMinRooms` Räume vom Start entfernt
-  const others = rooms.map((r, i) => i).filter(i => i !== 0 && i !== far);
+  let others = rooms.map((r, i) => i).filter(i => i !== 0 && i !== far && i !== G.elevatorRoom);
+  if (!others.length) others = rooms.map((r, i) => i).filter(i => i !== 0 && i !== far);
   const maxHops = Math.max(...others.map(i => hops[i]));
   const candidates = others.filter(i => hops[i] >= Math.min(cfg.goalMinRooms, maxHops));
   placeItem(cfg.goalItem, pick(candidates));
@@ -672,6 +683,12 @@ function useElevator() {
   travelToNextDeck();
 }
 
+function markRoomOnMap(ri) {
+  const r = G.rooms[ri];
+  for (let y = r.y - 1; y <= r.y + r.h; y++)
+    for (let x = r.x - 1; x <= r.x + r.w; x++) G.explored[idx(x, y)] = 1;
+}
+
 const COMPASS = ['Osten', 'Südosten', 'Süden', 'Südwesten', 'Westen', 'Nordwesten', 'Norden', 'Nordosten'];
 function compass(from, to) {
   const a = Math.atan2(to.y - from.y, to.x - from.x);
@@ -689,7 +706,7 @@ function useTerminal(prop) {
   Sound.play('beep');
   addEffect({ type: 'hit', ent: { rx: prop.x, ry: prop.y }, ms: 250, color: 'rgba(79,209,255,0.5)' });
   if (G.station.repaired) {
-    addLog(`${E.terminal} ${E.elevator} Aufzug: im ${compass(prop, G.station)}, ${distWord(prop, G.station)}.`);
+    addLog(`${E.terminal} ${E.elevator} Aufzug: im ${compass(prop, G.elevator)}, ${distWord(prop, G.elevator)}.`);
   } else if (p.hasTool) {
     addLog(`${E.terminal} ${st.name}: im ${compass(prop, G.station)}, ${distWord(prop, G.station)}.`);
   } else {
@@ -702,9 +719,7 @@ function useTerminal(prop) {
   if (!prop.used) {
     prop.used = true;
     // Schiffsplan: Der Stationsraum wird auf der Karte markiert
-    const r = G.rooms[G.station.room];
-    for (let y = r.y - 1; y <= r.y + r.h; y++)
-      for (let x = r.x - 1; x <= r.x + r.w; x++) G.explored[idx(x, y)] = 1;
+    markRoomOnMap(G.station.room);
     floatText(prop.x, prop.y, 'Schiffsplan geladen', '#4fd1ff', 1200);
   }
 }
@@ -753,7 +768,9 @@ function useStation(dx, dy) {
   addLog(st.bonusText);
   if (G.deckIndex + 1 < DECKS.length) {
     const next = DECKS[G.deckIndex + 1];
-    addLog(`${E.elevator} Der Aufzug zu Deck ${next.id} hat wieder Strom!`);
+    addLog(`${E.elevator} Der Aufzug zu Deck ${next.id} hat wieder Strom – im ${compass(G.station, G.elevator)}, ${distWord(G.station, G.elevator)}.`);
+    floatText(G.elevator.x, G.elevator.y, 'Strom!', '#4fd1ff', 1400);
+    markRoomOnMap(G.elevatorRoom);
   } else {
     state = 'won';
     setTimeout(() => showScreen('won'), 1400);
