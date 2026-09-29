@@ -31,13 +31,14 @@
         <span id="hud-shield" hidden>🛡️ ✔</span>
         <span id="hud-o2" hidden>🫧 <b class="bar"><i id="hud-o2-fill"></i></b> <span id="hud-o2-val">100</span></span>
         <span id="hud-leaks" hidden>💨 0</span>
-        <button id="hud-sound" aria-label="Ton an/aus">🔊</button>
+        <button id="hud-sound" class="hud-btn" aria-label="Ton an/aus">🔊</button>
+        <button id="hud-pause" class="hud-btn" aria-label="Pause">⏸️</button>
       </div>
       <div id="stage">
         <canvas id="view"></canvas>
       </div>
       <div id="log"></div>
-      <div id="keys">Bewegen: Pfeile/WASD · Schießen: Leertaste/F · Medkit: E/Q · Warten: R · Ton: M</div>
+      <div id="keys">Bewegen: Pfeile/WASD · Schießen: Leertaste/F · Medkit: E/Q · Warten: R · Ton: M · Pause: Esc</div>
     </main>
 
     <div id="pad-right" class="pad">
@@ -75,8 +76,36 @@
       <h1 id="screen-title">Captain Moji</h1>
       <p id="screen-text"></p>
       <div class="btn-row">
-        <button id="screen-btn">Neuer Run</button>
+        <button id="screen-btn" class="primary">Neuer Run</button>
         <button id="screen-menu" class="ghost">Titelbild</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="briefing" class="overlay hidden">
+    <div class="panel brief">
+      <div class="brief-head">
+        <span id="brief-icon" class="big">🛡️</span>
+        <div>
+          <small id="brief-deck">Deck 1</small>
+          <h2 id="brief-title">Schilde</h2>
+        </div>
+      </div>
+      <p id="brief-goal" class="brief-goal"></p>
+      <ul id="brief-tips"></ul>
+      <p id="brief-reward" class="brief-reward"></p>
+      <button id="brief-go" class="primary">Los geht's</button>
+    </div>
+  </div>
+
+  <div id="pause" class="overlay hidden">
+    <div class="panel">
+      <div class="big">⏸️</div>
+      <h1>Pause</h1>
+      <p>Wenn du abbrichst, ist der Run verloren.</p>
+      <div class="btn-row">
+        <button id="pause-resume" class="primary">Weiterspielen</button>
+        <button id="pause-quit" class="ghost">Run abbrechen</button>
       </div>
     </div>
   </div>

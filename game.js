@@ -83,6 +83,16 @@ const DECKS = [
     crateLoot: { battery: 0.3, medkit: 0.15 },
     goalItem: 'wrench', station: 'generator', goalMinRooms: 3,
     intro: 'Finde das 🔧 und bring es zum 🛡️ Schildgenerator.',
+    briefing: {
+      goal: 'Finde das 🔧 Werkzeug und repariere den 🛡️ Schildgenerator.',
+      tips: [
+        '🤖 Sicherheitsdrohnen patrouillieren. Schlafende 💤 überraschst du mit doppeltem Schaden.',
+        '🔫 Blaster schießt in Blickrichtung und kostet 🔋 – Nahkampf durch Hineinlaufen.',
+        '🖥️ Terminals zeigen dir die Richtung. 📦 Kisten enthalten manchmal 🔋 oder 🩹.',
+        '🛗 Danach bringt dich der Aufzug zum nächsten Deck.',
+      ],
+      reward: '🛡️ Schild: fängt regelmäßig einen Treffer ab.',
+    },
   },
   {
     id: 2, name: 'Lebenserhaltung', icon: E.lifesupport,
@@ -96,6 +106,15 @@ const DECKS = [
     goalItem: 'wrench', station: 'lifesupport', goalMinRooms: 3,
     oxygen: { drain: 0.35, perLeak: 0.15, stations: [3, 4], leaks: [4, 6], sporeCap: 30 },
     intro: 'O₂ wird knapp! 💨 Lecks abdichten, an 🫧 tanken, 🔧 zur 🫁 bringen.',
+    briefing: {
+      goal: 'Finde das 🔧 Werkzeug und repariere die 🫁 Lebenserhaltung.',
+      tips: [
+        '🫧 Der Sauerstoff sinkt mit jedem Zug. O₂-Stationen füllen ihn einmal komplett auf.',
+        '💨 Lecks lassen den Sauerstoff schneller sinken – lauf dagegen, um sie abzudichten.',
+        '🦠 Sporen bewegen sich nicht, wachsen aber nach. Nicht trödeln!',
+      ],
+      reward: '🫁 Lebenserhaltung: Du regenerierst langsam ❤️.',
+    },
   },
 ];
 
@@ -1073,7 +1092,7 @@ function travelToNextDeck() {
   }, 700);
   setTimeout(() => {
     banner.classList.remove('show');
-    state = 'play';
+    showBriefing();
     requestRender();
   }, 2000);
 }
@@ -1596,6 +1615,52 @@ const Title = (() => {
   };
 })();
 
+// ---------- Einsatzbesprechung ----------
+function showBriefing() {
+  const cfg = G.cfg, b = cfg.briefing;
+  state = 'briefing';
+  document.getElementById('brief-icon').textContent = cfg.icon;
+  document.getElementById('brief-deck').textContent = `Deck ${cfg.id} von ${DECKS.length}`;
+  document.getElementById('brief-title').textContent = cfg.name;
+  document.getElementById('brief-goal').textContent = `🎯 ${b.goal}`;
+  document.getElementById('brief-tips').replaceChildren(...b.tips.map(t => {
+    const li = document.createElement('li'); li.textContent = t; return li;
+  }));
+  document.getElementById('brief-reward').textContent = `Belohnung – ${b.reward}`;
+  document.getElementById('briefing').classList.remove('hidden');
+}
+
+function closeBriefing() {
+  if (state !== 'briefing') return;
+  document.getElementById('briefing').classList.add('hidden');
+  document.getElementById('brief-go').blur();
+  state = 'play';
+  requestRender();
+}
+
+// ---------- Pause / Abbrechen ----------
+let pausedFrom = null;
+function openPause() {
+  if (state !== 'play' && state !== 'briefing') return;
+  pausedFrom = state;
+  state = 'paused';
+  document.getElementById('pause').classList.remove('hidden');
+}
+
+function closePause() {
+  if (state !== 'paused') return;
+  document.getElementById('pause').classList.add('hidden');
+  document.getElementById('pause-resume').blur();
+  state = pausedFrom;
+  requestRender();
+}
+
+function quitRun() {
+  document.getElementById('pause').classList.add('hidden');
+  document.getElementById('briefing').classList.add('hidden');
+  showTitle();
+}
+
 function showTitle() {
   state = 'title';
   document.getElementById('screen').classList.add('hidden');
@@ -1603,13 +1668,13 @@ function showTitle() {
 }
 
 function startRun() {
-  if (state === 'play' || state === 'travel') return;
+  if (!['title', 'dead', 'won'].includes(state)) return;
   Sound.unlock();
   Title.hide();
   document.getElementById('screen').classList.add('hidden');
   document.getElementById('screen-btn').blur();
   newRun(START_DECK);
-  state = 'play';
+  showBriefing();
   renderHud();
   resize();
 }
@@ -1624,6 +1689,18 @@ let lastKeyTime = 0;
 
 window.addEventListener('keydown', ev => {
   if (ev.code === 'KeyM') { Sound.toggle(); return; }
+  if (ev.code === 'Escape') {
+    if (state === 'play' || state === 'briefing') { ev.preventDefault(); openPause(); return; }
+    if (state === 'paused') { ev.preventDefault(); closePause(); return; }
+  }
+  if (state === 'briefing') {
+    if (ev.code === 'Enter' || ev.code === 'Space') { ev.preventDefault(); closeBriefing(); }
+    return;
+  }
+  if (state === 'paused') {
+    if (ev.code === 'Enter' || ev.code === 'Space') { ev.preventDefault(); closePause(); }
+    return;
+  }
   if (state !== 'play') {
     const screenOpen = !document.getElementById('screen').classList.contains('hidden');
     if ((ev.code === 'Enter' || ev.code === 'Space') && (screenOpen || Title.visible)) {
@@ -1668,6 +1745,10 @@ document.querySelectorAll('.abtn').forEach(b => {
 document.getElementById('hud-sound').addEventListener('pointerdown', ev => { ev.preventDefault(); Sound.toggle(); });
 document.getElementById('screen-btn').addEventListener('click', startRun);
 document.getElementById('screen-menu').addEventListener('click', showTitle);
+document.getElementById('brief-go').addEventListener('click', closeBriefing);
+document.getElementById('pause-resume').addEventListener('click', closePause);
+document.getElementById('pause-quit').addEventListener('click', quitRun);
+document.getElementById('hud-pause').addEventListener('pointerdown', ev => { ev.preventDefault(); openPause(); });
 document.getElementById('title-start').addEventListener('click', () => { startRun(); Sound.play('elevator'); });
 document.getElementById('title-sound').addEventListener('click', () => Sound.toggle());
 window.addEventListener('resize', () => Title.resize());

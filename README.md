@@ -17,6 +17,7 @@ Das Raumschiff ist schwer beschädigt. Als Captain kämpfst du dich Deck für De
 | Medkit 🩹 | E / Q | Item |
 | Warten | R | – |
 | Ton an/aus | M | 🔊 im HUD |
+| Pause / Run abbrechen | Esc | ⏸️ im HUD |
 
 ## Stand
 
