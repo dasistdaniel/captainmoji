@@ -126,6 +126,9 @@ const ITEMS = {
 };
 
 // ---------- Meta-Progression: Datenkerne & Forschungslabor ----------
+// Reparatur-Droide (Labor-Upgrade)
+const DROID = { hp: 6, dmg: 1, hit: 0.85, healEvery: 15, leash: 5 };
+
 const CORE_DROP = 0.35;    // Chance, dass eine Drohne einen 💾 fallen lässt
 const CORES_PER_STATION = 3;
 
@@ -136,7 +139,8 @@ const UPGRADES = [
   { id: 'ammo',    icon: '🔋', name: 'Größere Energiezellen', costs: [5, 8, 12],        desc: () => '+2 🔋 Startmunition pro Stufe' },
   { id: 'scanner', icon: '📡', name: 'Scanner',               costs: [8, 16],
     desc: lvl => lvl < 1 ? 'Markiert beim Betreten eines Decks Station und Aufzug' : 'Zeigt beim Betreten eines Decks den ganzen Plan' },
-  { id: 'droid',   icon: '🤖', name: 'Reparatur-Droide',      costs: [30], soon: true,  desc: () => 'Ein Begleiter, der mitkämpft' },
+  { id: 'droid',   icon: '🤖', name: 'Reparatur-Droide',      costs: [30],
+    desc: () => 'Begleiter: kämpft mit und repariert dich, wenn er neben dir steht' },
 ];
 
 const Meta = {
@@ -223,12 +227,12 @@ function loadDeck(cfg) {
   let map;
   for (let tries = 0; tries < 30; tries++) {
     map = generateMap(cfg);
-    Object.assign(G, map, { props: null });
+    Object.assign(G, map, { props: null, droid: null });
     const hops = roomHops(0);
     if (hops.filter(h => h >= cfg.goalMinRooms).length >= 2) break;
   }
   Object.assign(G, map, {
-    cfg, enemies: [], items: new Map(), props: new Map(), deco: new Map(), leaks: new Map(), station: null,
+    cfg, enemies: [], items: new Map(), props: new Map(), deco: new Map(), leaks: new Map(), station: null, droid: null,
     visitedRooms: new Set([0]), sporeWarned: false,
     explored: new Uint8Array(map.w * map.h), visible: new Uint8Array(map.w * map.h),
     fade: new Float32Array(map.w * map.h), // angezeigte Helligkeit je Feld, gleitet zum Zielwert
@@ -298,6 +302,14 @@ function loadDeck(cfg) {
 
   Meta.data.bestDeck = Math.max(Meta.data.bestDeck, cfg.id);
   Meta.save();
+  // Reparatur-Droide startet neben dem Captain – auf jedem Deck frisch repariert
+  G.droid = null;
+  if (Meta.level('droid')) {
+    const spot = Object.values(DIRS).map(([dx, dy]) => ({ x: p.x + dx, y: p.y + dy }))
+      .find(q => passable(q.x, q.y) && !occupied(q.x, q.y)) || freeTileInRoom(0);
+    if (spot) G.droid = { x: spot.x, y: spot.y, rx: spot.x, ry: spot.y, hp: DROID.hp, maxHp: DROID.hp, healTimer: 0 };
+  }
+
   const scan = Meta.level('scanner');
   if (scan >= 2) G.explored.fill(1);
   else if (scan >= 1) { markRoomOnMap(G.station.room); markRoomOnMap(G.elevatorRoom); }
@@ -306,6 +318,7 @@ function loadDeck(cfg) {
   addLog(`${cfg.icon} Deck ${cfg.id}: ${cfg.name}`);
   addLog(cfg.intro);
   if (scan) addLog(`📡 Scanner: ${scan >= 2 ? 'kompletter Deckplan geladen.' : 'Station und Aufzug markiert.'}`);
+  if (G.droid) addLog('🤖 Dein Reparatur-Droide ist einsatzbereit.');
 }
 
 // Lecks sitzen in Raumwänden; man dichtet sie ab, indem man gegen sie läuft
@@ -480,8 +493,9 @@ function passable(x, y) { return tileAt(x, y) !== T.WALL; }
 function enemyAt(x, y) { return G.enemies.find(e => e.x === x && e.y === y); }
 function propAt(x, y) { return inBounds(x, y) ? G.props.get(idx(x, y)) : undefined; }
 function isStation(x, y) { return G.station && G.station.x === x && G.station.y === y; }
+function droidAt(x, y) { return G.droid && G.droid.hp > 0 && G.droid.x === x && G.droid.y === y ? G.droid : null; }
 function occupied(x, y) {
-  return (G.player.x === x && G.player.y === y) || enemyAt(x, y) || isStation(x, y) ||
+  return (G.player.x === x && G.player.y === y) || enemyAt(x, y) || droidAt(x, y) || isStation(x, y) ||
          G.items.has(idx(x, y)) || G.props.has(idx(x, y));
 }
 
@@ -585,6 +599,16 @@ function playerMove(dir) {
   if (enemy) {
     bump(p, dx, dy);
     damageEnemy(enemy, PLAYER_BASE.meleeDmg, 'Nahkampf');
+    return true;
+  }
+  const droid = droidAt(nx, ny);
+  if (droid) {
+    // Platz mit dem Droiden tauschen
+    droid.x = p.x; droid.y = p.y;
+    p.x = nx; p.y = ny;
+    Sound.play('step');
+    pickup();
+    enterRoom();
     return true;
   }
   const prop = propAt(nx, ny);
@@ -799,7 +823,7 @@ function playerShoot() {
     if (!passable(nx, ny) || isStation(nx, ny)) break;
     x = nx; y = ny;
     prop = propAt(x, y);
-    hit = enemyAt(x, y);
+    hit = enemyAt(x, y); // der eigene Droide wird einfach durchschossen
     if (hit || prop) break;
   }
   Sound.play('shoot');
@@ -864,6 +888,74 @@ function damageEnemy(e, dmg, how) {
   }
 }
 
+// ---------- Reparatur-Droide ----------
+function droidAct() {
+  const d = G.droid, p = G.player;
+  if (!d || d.hp <= 0) return;
+
+  // Reparatur: steht er neben dem Captain, gibt es regelmäßig +1 ❤️
+  d.healTimer++;
+  if (d.healTimer >= DROID.healEvery && manhattan(d, p) === 1 && p.hp < p.maxHp) {
+    d.healTimer = 0;
+    p.hp++;
+    floatText(p.x, p.y, '🔧 +1', '#6dff8a');
+    sparks(p.x, p.y, '#6dff8a', 6);
+    Sound.play('heal');
+    addLog('🤖 Dein Droide repariert deinen Anzug: +1 ❤️');
+    return;
+  }
+
+  // 1. Angreifen – schlafende Drohnen lässt er in Ruhe, damit man weiter schleichen kann
+  const awake = e => e.mode !== 'sleep';
+  const adjacent = G.enemies.filter(e => awake(e) && manhattan(e, d) === 1);
+  if (adjacent.length) {
+    const target = adjacent.reduce((a, b) => (b.hp < a.hp ? b : a));
+    bump(d, target.x - d.x, target.y - d.y);
+    if (Math.random() < DROID.hit) damageEnemy(target, DROID.dmg, '🤖 Droide');
+    else { floatText(target.x, target.y, 'verfehlt', '#9aa6c0'); Sound.play('miss'); }
+    return;
+  }
+
+  // 2. Wache Gegner in der Nähe des Captains angehen
+  const targets = G.enemies.filter(e => awake(e) && G.visible[idx(e.x, e.y)] &&
+    manhattan(e, p) <= DROID.leash && (e.alert > 0 || ENEMY_TYPES[e.type].static));
+  if (targets.length) {
+    const target = targets.reduce((a, b) => (manhattan(b, d) < manhattan(a, d) ? b : a));
+    stepToward(d, target);
+    return;
+  }
+
+  // 3. Dem Captain folgen
+  if (manhattan(d, p) > 2) stepToward(d, p);
+}
+
+function stepToward(ent, target) {
+  const dist = bfs(target.x, target.y, (x, y) => !isStation(x, y));
+  const cur = dist[idx(ent.x, ent.y)];
+  const moves = freeSteps(ent).filter(([x, y]) => dist[idx(x, y)] !== -1 && (cur === -1 || dist[idx(x, y)] < cur));
+  if (moves.length) [ent.x, ent.y] = pick(moves);
+}
+
+function attackDroid(e, t) {
+  const d = G.droid;
+  bump(e, d.x - e.x, d.y - e.y);
+  if (Math.random() > t.hit) { floatText(d.x, d.y, 'verfehlt', '#9aa6c0'); return; }
+  d.hp -= t.dmg;
+  addEffect({ type: 'hit', ent: d, ms: 160 });
+  floatText(d.x, d.y, `-${t.dmg}`, '#ff9a5a');
+  Sound.play('hit');
+  if (d.hp <= 0) {
+    d.hp = 0;
+    addEffect({ type: 'boom', x: d.x, y: d.y, ms: 450 });
+    sparks(d.x, d.y, '#4fd1ff', 16);
+    shake(3, 160);
+    Sound.play('explode');
+    addLog('🤖 Dein Droide ist ausgefallen! Im nächsten Aufzug wird er repariert.');
+  } else {
+    addLog(`${t.emoji} greift deinen Droiden an: −${t.dmg}`);
+  }
+}
+
 // ---------- Gegnerzug ----------
 const ALERT_TURNS = 6, ALARM_RADIUS = 7, WAKE_RADIUS = 2;
 
@@ -877,6 +969,7 @@ function enemiesAct() {
 
     if (t.static) {
       if (d === 1) enemyAttack(e, t);
+      else if (G.droid && droidAt(G.droid.x, G.droid.y) && manhattan(e, G.droid) === 1) attackDroid(e, t);
       continue;
     }
 
@@ -891,6 +984,7 @@ function enemiesAct() {
     else if (e.alert > 0 && --e.alert === 0) floatText(e.x, e.y, '❓', '#9aa6c0');
 
     if (d === 1 && e.alert > 0) { enemyAttack(e, t); continue; }
+    if (e.alert > 0 && G.droid && droidAt(G.droid.x, G.droid.y) && manhattan(e, G.droid) === 1) { attackDroid(e, t); continue; }
 
     if (e.alert > 0) {
       const cur = dist[idx(e.x, e.y)];
@@ -1045,6 +1139,7 @@ function act(action) {
   else if (DIRS[action]) used = playerMove(action);
 
   if (state === 'play' && used) {
+    droidAct();
     enemiesAct();
     tickPlayer();
     updateFov();
@@ -1211,6 +1306,7 @@ function frame(now) {
   let busy = glide(G.player, dt) || !!G.player.bump;
   busy = stepFog(dt) || busy;
   for (const e of G.enemies) busy = glide(e, dt) || !!e.bump || busy;
+  if (G.droid) busy = glide(G.droid, dt) || !!G.droid.bump || busy;
   G.effects = G.effects.filter(f => f.until > now);
   busy = busy || G.effects.length > 0 || G.shake.until > now;
   render(now);
@@ -1328,6 +1424,38 @@ function render(now = performance.now()) {
       ctx.fillRect(l, top, tile * 0.7, tile * 0.08);
       ctx.fillStyle = '#f44';
       ctx.fillRect(l, top, tile * 0.7 * e.hp / e.maxHp, tile * 0.08);
+    }
+  }
+
+  // Reparatur-Droide: türkiser Leuchtring + kleines 🔧, damit man ihn von feindlichen Drohnen unterscheidet
+  const dr = G.droid;
+  if (dr && dr.hp > 0) {
+    const [bx, by] = bumpOffset(dr, now);
+    const dx = mx(dr.rx + bx), dy = my(dr.ry + by);
+    const glow = 0.55 + Math.sin(now / 350) * 0.15;
+    ctx.fillStyle = `rgba(79,209,255,${glow * 0.35})`;
+    ctx.strokeStyle = `rgba(79,209,255,${glow + 0.2})`;
+    ctx.lineWidth = Math.max(2, tile * 0.05);
+    ctx.shadowColor = '#4fd1ff'; ctx.shadowBlur = 10;
+    ctx.beginPath();
+    ctx.ellipse(dx, dy + tile * 0.32, tile * 0.42, tile * 0.14, 0, 0, Math.PI * 2);
+    ctx.fill(); ctx.stroke();
+    ctx.shadowBlur = 0;
+    drawEmoji(E.drone, dx, dy + Math.sin(now / 300) * tile * 0.03, 0.7);
+    // 🔧-Plakette oben rechts
+    ctx.fillStyle = '#0b2a3a';
+    ctx.strokeStyle = '#4fd1ff';
+    ctx.lineWidth = Math.max(1, tile * 0.03);
+    ctx.beginPath();
+    ctx.arc(dx + tile * 0.32, dy - tile * 0.26, tile * 0.17, 0, Math.PI * 2);
+    ctx.fill(); ctx.stroke();
+    drawEmoji(E.wrench, dx + tile * 0.32, dy - tile * 0.26, 0.26);
+    if (dr.hp < dr.maxHp) {
+      const l = dx - tile * 0.35, top = dy - tile * 0.44;
+      ctx.fillStyle = '#123';
+      ctx.fillRect(l, top, tile * 0.7, tile * 0.08);
+      ctx.fillStyle = '#4fd1ff';
+      ctx.fillRect(l, top, tile * 0.7 * dr.hp / dr.maxHp, tile * 0.08);
     }
   }
 
@@ -1499,6 +1627,12 @@ function renderHud() {
   tool.textContent = p.hasTool ? `${E.wrench} ✔` : `${E.wrench} –`;
   tool.classList.toggle('got', p.hasTool);
   document.getElementById('hud-cores').textContent = `${E.core} ${G.runCores}`;
+  const droidHud = document.getElementById('hud-droid');
+  droidHud.hidden = !G.droid;
+  if (G.droid) {
+    droidHud.textContent = G.droid.hp > 0 ? `${E.drone} ${G.droid.hp}` : `${E.drone} ✖`;
+    droidHud.classList.toggle('down', G.droid.hp <= 0);
+  }
   document.getElementById('hud-deck').innerHTML = `${G.cfg.icon} <span class="long">Deck </span>${G.cfg.id}`;
 
   const shield = document.getElementById('hud-shield');

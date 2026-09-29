@@ -149,8 +149,10 @@ html, body {
     justify-content: center;
   }
   #keys { display: none; }
-  #hud { font-size: 13px; line-height: 18px; gap: 7px; }
-  #hud-o2 .bar { width: 30px; }
+  /* das HUD darf über die (oben freien) Steuerpads hinausragen */
+  #hud { font-size: 13px; line-height: 18px; gap: 7px; width: calc(100vw - 200px); flex-shrink: 0; }
+  #hud-o2 .bar { width: 34px; }
+  #hud-o2-val { display: none; }
   #hud .long { display: none; }
   /* Ton- und Pause-Knopf wandern in die freie Ecke über den Aktionsknöpfen */
   .hud-btn { position: fixed; top: 6px; z-index: 5; font-size: 20px; padding: 4px; }
@@ -429,6 +431,8 @@ button {
 }
 #title-lab span { margin-left: 6px; color: #c9a7ff; }
 #hud-cores { color: #c9a7ff; }
+#hud-droid { color: var(--accent); }
+#hud-droid.down { color: var(--dim); }
 
 /* ---------- Forschungslabor ---------- */
 #lab {

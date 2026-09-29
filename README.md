@@ -38,7 +38,9 @@ Das Raumschiff ist schwer beschädigt. Als Captain kämpfst du dich Deck für De
 **🔬 Forschungslabor (Meta-Progression)**
 - 💾 Datenkerne: Drohnen lassen sie fallen, Kisten enthalten sie, jede reparierte Station gibt +3
 - Kerne bleiben nach dem Tod erhalten (im Browser gespeichert) und werden im Labor ausgegeben
-- Upgrades: ❤️ Verstärkter Anzug, 🩹 Notfallpaket, 🔋 Größere Energiezellen, 📡 Scanner (🤖 Reparatur-Droide folgt)
+- Upgrades: ❤️ Verstärkter Anzug, 🩹 Notfallpaket, 🔋 Größere Energiezellen, 📡 Scanner
+- 🤖 Reparatur-Droide (💾 30): folgt dem Captain, greift wache Gegner an, repariert alle 15 Züge +1 ❤️,
+  wenn er neben dir steht; fällt er aus, wird er im nächsten Aufzug repariert. Hineinlaufen = Platz tauschen.
 
 Zwischen den Decks geht es mit dem 🛗 Aufzug weiter; ❤️, 🔋, 🩹 und Boni bleiben erhalten.
 Nebel des Krieges, Permadeath, Animationen und Sounds.
