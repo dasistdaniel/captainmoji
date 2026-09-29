@@ -1,3 +1,11 @@
+<p align="center">
+  <a href="https://dasistdaniel.github.io/captainmoji/"><img src="docs/logo.png" alt="Captain Moji" width="100%"></a>
+</p>
+
+<p align="center">
+  <a href="https://dasistdaniel.github.io/captainmoji/"><img src="https://img.shields.io/badge/%E2%96%B6%20Jetzt%20spielen-dasistdaniel.github.io%2Fcaptainmoji-4fd1ff?style=for-the-badge" alt="Jetzt spielen"></a>
+</p>
+
 # Captain Moji 🧑‍🚀
 
 Rundenbasiertes Sci-Fi-Roguelike im Browser – komplett mit Emojis als Grafik.
@@ -6,7 +14,9 @@ Das Raumschiff ist schwer beschädigt. Als Captain kämpfst du dich Deck für De
 
 ## Spielen
 
-`index.html` im Browser öffnen – kein Build, keine Abhängigkeiten.
+**Online:** 👉 **[dasistdaniel.github.io/captainmoji](https://dasistdaniel.github.io/captainmoji/)** – läuft am PC und auf dem Handy (Querformat).
+
+**Lokal:** `index.html` im Browser öffnen – kein Build, keine Abhängigkeiten.
 
 ## Steuerung
 
