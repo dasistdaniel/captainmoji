@@ -2220,6 +2220,9 @@ const Title = (() => {
 // ---------- Einsatzbesprechung ----------
 // Die Nachrichten tippen sich nacheinander ein – wie ein Funkspruch
 const CHIEF = { name: 'Chefingenieur Funke', emoji: '👨‍🔧' };
+const COMMS_CHAR_MS = 28;  // Tippgeschwindigkeit je Zeichen
+const COMMS_PAUSE_MS = 900; // Grundpause zwischen zwei Nachrichten …
+const COMMS_READ_MS = 18;   // … plus Lesezeit je Zeichen
 let comms = null;
 
 function showBriefing() {
@@ -2245,14 +2248,14 @@ function typeComms() {
     Sound.play('comm');
   }
   const text = c.msgs[c.i];
-  c.pos = Math.min(text.length, c.pos + 2);
+  c.pos = Math.min(text.length, c.pos + 1);
   c.el.textContent = text.slice(0, c.pos);
   box.scrollTop = box.scrollHeight;
-  if (c.pos < text.length) { c.timer = setTimeout(typeComms, 22); return; }
-  // Nachricht fertig – kurze Pause, dann die nächste
+  if (c.pos < text.length) { c.timer = setTimeout(typeComms, COMMS_CHAR_MS); return; }
+  // Nachricht fertig – Lesepause je nach Länge, dann die nächste
   c.i++; c.pos = 0; c.el = null;
   if (c.i >= c.msgs.length) return finishComms();
-  c.timer = setTimeout(typeComms, 550);
+  c.timer = setTimeout(typeComms, COMMS_PAUSE_MS + text.length * COMMS_READ_MS);
 }
 
 function finishComms() {

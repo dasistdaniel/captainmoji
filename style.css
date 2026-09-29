@@ -317,7 +317,11 @@ button {
   max-height: 260px;
   min-height: 150px;
   overflow-y: auto;
+  overflow-x: hidden;
+  /* scrollbar ausblenden – Scrollen per Rad/Wischen geht weiterhin */
+  scrollbar-width: none;
 }
+.comms-msgs::-webkit-scrollbar { display: none; }
 .comms-msg {
   align-self: flex-start;
   padding: 7px 11px;
