@@ -1,5 +1,5 @@
 'use strict';
-// Captain Moji – Prototyp (Schritt 1): Deck 1 🛡️ Schilde
+// Captain Moji – Prototyp: Deck 1 🛡️ Schilde
 
 // ---------- Konstanten & Konfiguration ----------
 const VIEW_W = 15, VIEW_H = 9;
@@ -10,6 +10,7 @@ const DIRS = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
 const E = {
   captain: '🧑‍🚀', drone: '🤖', wall: '🟫', door: '🚪',
   wrench: '🔧', battery: '🔋', medkit: '🩹', generator: '🛡️',
+  terminal: '🖥️', crate: '📦',
 };
 
 const PLAYER_BASE = { maxHp: 10, ammo: 3, meleeDmg: 2, blasterDmg: 3, blasterRange: 6 };
@@ -18,13 +19,36 @@ const ENEMY_TYPES = {
   drone: { emoji: E.drone, name: 'Sicherheitsdrohne', hp: 3, dmg: 1, hit: 0.75, sight: 8 },
 };
 
+// Hindernisse im Raum. Alle blockieren Bewegung und Schüsse, aber nicht die Sicht.
+const PROPS = {
+  crate:    { emoji: E.crate,    name: 'Kiste',    scale: 0.72, hp: 2 },
+  terminal: { emoji: E.terminal, name: 'Terminal', scale: 0.72 },
+  bed:      { emoji: '🛏️',       name: 'Koje',     scale: 0.8 },
+  plant:    { emoji: '🪴',       name: 'Pflanze',  scale: 0.7 },
+};
+
+// Raumtypen: eigener Boden, eigene Hindernisse. `scatter` = frei im Raum statt an der Wand.
+const ROOM_THEMES = {
+  bruecke:   { name: 'Brücke',              icon: E.terminal, floor: ['#15203a', '#182440'], props: { terminal: [1, 1] } },
+  generator: { name: 'Schildgenerator',     icon: E.generator, floor: ['#122429', '#15292f'], props: {}, bolts: 0.1 },
+  lager:     { name: 'Lagerraum',           icon: E.crate,    floor: ['#221e18', '#26211a'], props: { crate: [2, 4] }, scatter: true },
+  kontroll:  { name: 'Kontrollraum',        icon: E.terminal, floor: ['#15203a', '#182440'], props: { terminal: [1, 2] } },
+  quartier:  { name: 'Mannschaftsquartier', icon: '🛏️',       floor: ['#1f1a2b', '#231d30'], props: { bed: [2, 3], plant: [0, 1] } },
+  technik:   { name: 'Technikraum',         icon: '🔩',       floor: ['#172420', '#1a2823'], props: { crate: [0, 2] }, bolts: 0.12 },
+  messe:     { name: 'Messe',               icon: '🪴',       floor: ['#1a2233', '#1d2638'], props: { plant: [1, 3] } },
+};
+
 // Jedes Deck ist nur eine Konfiguration – weitere Decks kommen später dazu.
 const DECKS = [
   {
     id: 1, name: 'Schilde', icon: E.generator,
     w: 50, h: 30, maxRooms: 10,
-    enemies: { drone: [4, 6] },
-    items: { medkit: [2, 3], battery: [3, 4] },
+    themes: ['lager', 'lager', 'kontroll', 'quartier', 'technik', 'messe'],
+    enemies: { drone: [5, 7] },
+    // Verhalten der Gegner: schlafend 💤, patrouillierend, bewachend
+    modes: { sleep: 0.35, patrol: 0.3, guard: 0.35 },
+    items: { medkit: [1, 2], battery: [2, 3] },
+    crateLoot: { battery: 0.3, medkit: 0.15 },
     goalItem: 'wrench', station: 'generator',
     intro: 'Finde das 🔧 und bring es zum 🛡️ Schildgenerator.',
   },
@@ -40,6 +64,14 @@ const ITEMS = {
 const rand = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
 const pick = arr => arr[Math.floor(Math.random() * arr.length)];
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const manhattan = (a, b) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+
+// gewichtete Auswahl aus { key: gewicht } – Rest bis 1 ergibt null
+function rollTable(table) {
+  let r = Math.random();
+  for (const [k, w] of Object.entries(table)) { if (r < w) return k; r -= w; }
+  return null;
+}
 
 // ---------- Spielzustand ----------
 let G = null;        // aktueller Run
@@ -60,8 +92,11 @@ function newRun() {
 // ---------- Deck-Generierung ----------
 function loadDeck(cfg) {
   const map = generateMap(cfg);
-  Object.assign(G, map, { cfg, enemies: [], items: new Map(), station: null,
-                          explored: new Uint8Array(map.w * map.h), visible: new Uint8Array(map.w * map.h) });
+  Object.assign(G, map, {
+    cfg, enemies: [], items: new Map(), props: new Map(), deco: new Map(), station: null,
+    visitedRooms: new Set([0]),
+    explored: new Uint8Array(map.w * map.h), visible: new Uint8Array(map.w * map.h),
+  });
 
   const { rooms } = G;
   const start = rooms[0];
@@ -75,7 +110,11 @@ function loadDeck(cfg) {
     const d = dist[idx(rooms[i].cx, rooms[i].cy)];
     if (d > best) { best = d; far = i; }
   }
-  G.station = { x: rooms[far].cx, y: rooms[far].cy, type: cfg.station, repaired: false };
+  G.station = { x: rooms[far].cx, y: rooms[far].cy, type: cfg.station, repaired: false, room: far };
+
+  rooms.forEach((r, i) => { r.theme = i === 0 ? 'bruecke' : i === far ? 'generator' : pick(cfg.themes); });
+  rooms.forEach((r, i) => placeProps(i));
+  placeDeco();
 
   // Zielitem weder im Start- noch im Stationsraum, möglichst weit weg vom Start
   const others = rooms.map((r, i) => i).filter(i => i !== 0 && i !== far);
@@ -90,8 +129,9 @@ function loadDeck(cfg) {
   for (const [type, [a, b]] of Object.entries(cfg.enemies)) {
     const n = rand(a, b);
     for (let i = 0; i < n; i++) {
-      const p = freeTileInRoom(rand(1, rooms.length - 1));
-      if (p) G.enemies.push(makeEnemy(type, p.x, p.y));
+      const ri = rand(1, rooms.length - 1);
+      const p = freeTileInRoom(ri);
+      if (p) G.enemies.push(makeEnemy(type, p.x, p.y, rollTable(cfg.modes) || 'guard', ri));
     }
   }
 
@@ -150,14 +190,56 @@ function generateMap(cfg) {
   return { w, h, tiles, roomAt, rooms };
 }
 
+// Hindernisse eines Raums setzen – nie so, dass ein Bodenfeld unerreichbar wird
+function placeProps(ri) {
+  const r = G.rooms[ri], theme = ROOM_THEMES[r.theme];
+  for (const [type, [a, b]] of Object.entries(theme.props)) {
+    let n = rand(a, b);
+    for (let tries = 0; n > 0 && tries < 40; tries++) {
+      const x = rand(r.x, r.x + r.w - 1), y = rand(r.y, r.y + r.h - 1);
+      const atWall = x === r.x || x === r.x + r.w - 1 || y === r.y || y === r.y + r.h - 1;
+      if (!theme.scatter && !atWall) continue;
+      if (occupied(x, y) || (x === r.cx && y === r.cy)) continue;
+      // nicht direkt vor Eingänge stellen
+      if (Object.values(DIRS).some(([dx, dy]) => passable(x + dx, y + dy) && G.roomAt[idx(x + dx, y + dy)] !== ri)) continue;
+      const key = idx(x, y);
+      G.props.set(key, { type, x, y, hp: PROPS[type].hp || 0 });
+      if (allReachable()) n--;
+      else G.props.delete(key);
+    }
+  }
+}
+
+function allReachable() {
+  const d = bfs(G.player.x, G.player.y, (x, y) => !isStation(x, y));
+  const st = idx(G.station.x, G.station.y);
+  for (let i = 0; i < d.length; i++)
+    if (G.tiles[i] !== T.WALL && d[i] === -1 && i !== st && !G.props.has(i)) return false;
+  return true;
+}
+
+// Bodendetails: Lüftungsgitter und Schrauben (nur Optik)
+function placeDeco() {
+  for (let i = 0; i < G.tiles.length; i++) {
+    if (G.tiles[i] !== T.FLOOR || G.props.has(i)) continue;
+    const ri = G.roomAt[i];
+    const theme = ri >= 0 ? ROOM_THEMES[G.rooms[ri].theme] : null;
+    const r = Math.random();
+    if (r < 0.05) G.deco.set(i, 'vent');
+    else if (theme && theme.bolts && r < 0.05 + theme.bolts) G.deco.set(i, 'bolt');
+  }
+}
+
 function idx(x, y) { return y * G.w + x; }
 function inBounds(x, y) { return x >= 0 && y >= 0 && x < G.w && y < G.h; }
 function tileAt(x, y) { return inBounds(x, y) ? G.tiles[idx(x, y)] : T.WALL; }
 function passable(x, y) { return tileAt(x, y) !== T.WALL; }
 function enemyAt(x, y) { return G.enemies.find(e => e.x === x && e.y === y); }
+function propAt(x, y) { return inBounds(x, y) ? G.props.get(idx(x, y)) : undefined; }
 function isStation(x, y) { return G.station && G.station.x === x && G.station.y === y; }
 function occupied(x, y) {
-  return (G.player.x === x && G.player.y === y) || enemyAt(x, y) || isStation(x, y) || G.items.has(idx(x, y));
+  return (G.player.x === x && G.player.y === y) || enemyAt(x, y) || isStation(x, y) ||
+         G.items.has(idx(x, y)) || G.props.has(idx(x, y));
 }
 
 function freeTileInRoom(ri) {
@@ -174,12 +256,12 @@ function placeItem(type, ri) {
   if (p) G.items.set(idx(p.x, p.y), { type, x: p.x, y: p.y });
 }
 
-function makeEnemy(type, x, y) {
+function makeEnemy(type, x, y, mode = 'guard', home = -1) {
   const t = ENEMY_TYPES[type];
-  return { type, x, y, rx: x, ry: y, hp: t.hp, maxHp: t.hp, alert: 0 };
+  return { type, x, y, rx: x, ry: y, hp: t.hp, maxHp: t.hp, alert: 0, mode, home };
 }
 
-// Breitensuche – Distanzkarte von (sx, sy)
+// Breitensuche – Distanzkarte von (sx, sy); Wände und Hindernisse blockieren
 function bfs(sx, sy, canPass) {
   const dist = new Int16Array(G.w * G.h).fill(-1);
   const q = [sx, sy];
@@ -188,8 +270,10 @@ function bfs(sx, sy, canPass) {
     const x = q[i], y = q[i + 1], d = dist[idx(x, y)];
     for (const [dx, dy] of Object.values(DIRS)) {
       const nx = x + dx, ny = y + dy;
-      if (!passable(nx, ny) || dist[idx(nx, ny)] !== -1 || !canPass(nx, ny)) continue;
-      dist[idx(nx, ny)] = d + 1;
+      if (!passable(nx, ny)) continue;
+      const ni = idx(nx, ny);
+      if (dist[ni] !== -1 || (G.props && G.props.has(ni)) || !canPass(nx, ny)) continue;
+      dist[ni] = d + 1;
       q.push(nx, ny);
     }
   }
@@ -309,6 +393,10 @@ const Sound = (() => {
     deny:    () => arp([220, 165], 'square', 0.09, 0.12, 0.05),
     win:     () => arp([523, 659, 784, 1047, 1319], 'triangle', 0.11, 0.3, 0.12),
     death:   () => arp([392, 330, 262, 196], 'sawtooth', 0.18, 0.32, 0.09),
+    crate:   () => { noise({ dur: 0.25, vol: 0.3, freq: 900 }); tone({ type: 'triangle', f0: 160, f1: 70, dur: 0.2, vol: 0.1 }); },
+    beep:    () => arp([880, 1175, 880], 'square', 0.06, 0.06, 0.04),
+    alarm:   () => arp([740, 988, 740, 988], 'square', 0.1, 0.09, 0.05),
+    wake:    () => tone({ type: 'sine', f0: 200, f1: 700, dur: 0.25, vol: 0.07 }),
   };
 
   return {
@@ -337,13 +425,85 @@ function playerMove(dir) {
     damageEnemy(enemy, PLAYER_BASE.meleeDmg, 'Nahkampf');
     return true;
   }
+  const prop = propAt(nx, ny);
+  if (prop) return useProp(prop, dx, dy);
   if (isStation(nx, ny)) return useStation(dx, dy);
   if (!passable(nx, ny)) { bump(p, dx, dy, 0.12); Sound.play('bump'); return false; }
 
   p.x = nx; p.y = ny;
   Sound.play('step');
   pickup();
+  enterRoom();
   return true;
+}
+
+function enterRoom() {
+  const ri = G.roomAt[idx(G.player.x, G.player.y)];
+  if (ri < 0 || G.visitedRooms.has(ri)) return;
+  G.visitedRooms.add(ri);
+  const th = ROOM_THEMES[G.rooms[ri].theme];
+  addLog(`${th.icon} ${th.name}`);
+}
+
+function useProp(prop, dx, dy) {
+  const p = G.player;
+  if (prop.type === 'crate') {
+    bump(p, dx, dy);
+    damageProp(prop, PLAYER_BASE.meleeDmg);
+    return true;
+  }
+  bump(p, dx, dy, 0.12);
+  if (prop.type === 'terminal') { useTerminal(prop); return false; }
+  Sound.play('bump');
+  return false;
+}
+
+function damageProp(prop, dmg) {
+  prop.hp -= dmg;
+  sparks(prop.x, prop.y, '#c8955a', 10);
+  if (prop.hp > 0) { Sound.play('hit'); return; }
+  G.props.delete(idx(prop.x, prop.y));
+  Sound.play('crate');
+  shake(2, 120);
+  const loot = rollTable(G.cfg.crateLoot);
+  if (loot) {
+    G.items.set(idx(prop.x, prop.y), { type: loot, x: prop.x, y: prop.y });
+    floatText(prop.x, prop.y, ITEMS[loot].emoji, '#ffffff');
+    addLog(`${E.crate} Kiste aufgebrochen: ${ITEMS[loot].emoji} ${ITEMS[loot].name}!`);
+  } else {
+    addLog(`${E.crate} Kiste aufgebrochen – leer.`);
+  }
+}
+
+const COMPASS = ['Osten', 'Südosten', 'Süden', 'Südwesten', 'Westen', 'Nordwesten', 'Norden', 'Nordosten'];
+function compass(from, to) {
+  const a = Math.atan2(to.y - from.y, to.x - from.x);
+  return COMPASS[(Math.round(a / (Math.PI / 4)) + 8) % 8];
+}
+function distWord(from, to) {
+  const d = Math.hypot(to.x - from.x, to.y - from.y);
+  return d < 12 ? 'ganz in der Nähe' : d < 24 ? 'nicht weit' : 'weit entfernt';
+}
+
+// Terminals verraten, wo es weitergeht. Kostet keinen Zug.
+function useTerminal(prop) {
+  const p = G.player;
+  Sound.play('beep');
+  addEffect({ type: 'hit', ent: { rx: prop.x, ry: prop.y }, ms: 250, color: 'rgba(79,209,255,0.5)' });
+  if (p.hasTool) {
+    addLog(`${E.terminal} Schildgenerator: im ${compass(prop, G.station)}, ${distWord(prop, G.station)}.`);
+  } else {
+    const tool = [...G.items.values()].find(i => i.type === G.cfg.goalItem);
+    if (tool) addLog(`${E.terminal} Werkzeug-Signal ${E.wrench}: im ${compass(prop, tool)}, ${distWord(prop, tool)}.`);
+  }
+  if (!prop.used) {
+    prop.used = true;
+    // Schiffsplan: Der Raum mit dem Schildgenerator wird auf der Karte markiert
+    const r = G.rooms[G.station.room];
+    for (let y = r.y - 1; y <= r.y + r.h; y++)
+      for (let x = r.x - 1; x <= r.x + r.w; x++) G.explored[idx(x, y)] = 1;
+    floatText(prop.x, prop.y, 'Schiffsplan geladen', '#4fd1ff', 1200);
+  }
 }
 
 function pickup() {
@@ -398,21 +558,24 @@ function playerShoot() {
   }
   p.ammo--;
   const [dx, dy] = p.face;
-  let x = p.x, y = p.y, hit = null;
+  let x = p.x, y = p.y, hit = null, prop = null;
   for (let i = 0; i < PLAYER_BASE.blasterRange; i++) {
     const nx = x + dx, ny = y + dy;
     if (!passable(nx, ny) || isStation(nx, ny)) break;
     x = nx; y = ny;
+    prop = propAt(x, y);
     hit = enemyAt(x, y);
-    if (hit) break;
+    if (hit || prop) break;
   }
   Sound.play('shoot');
   bump(p, -dx, -dy, 0.1);
   addEffect({ type: 'laser', x0: p.x, y0: p.y, x1: x, y1: y, ms: 170 });
   if (hit) damageEnemy(hit, PLAYER_BASE.blasterDmg, 'Blaster');
+  else if (prop && prop.type === 'crate') damageProp(prop, PLAYER_BASE.blasterDmg);
   else {
     // Einschlag am Ende des Strahls
-    sparks(x + dx * 0.45, y + dy * 0.45, '#4fd1ff', 6);
+    const edge = prop ? 0 : 0.45;
+    sparks(x + dx * edge, y + dy * edge, '#4fd1ff', 6);
     addLog('Pew! Daneben.');
   }
   return true;
@@ -434,8 +597,10 @@ function playerUseItem() {
 
 function damageEnemy(e, dmg, how) {
   const t = ENEMY_TYPES[e.type];
+  const surprised = e.mode === 'sleep';
+  if (surprised) { dmg *= 2; how = 'Überraschungsangriff'; }
+  const wasCalm = e.alert === 0;
   e.hp -= dmg;
-  e.alert = 6;
   addEffect({ type: 'hit', ent: e, ms: 160 });
   floatText(e.x, e.y, `-${dmg}`, '#ffd84f');
   sparks(e.x, e.y, '#ffcf4f', 8);
@@ -445,36 +610,93 @@ function damageEnemy(e, dmg, how) {
     sparks(e.x, e.y, '#ff8a3d', 18);
     shake(4, 180);
     Sound.play('explode');
-    addLog(`💥 ${t.emoji} ${t.name} zerstört!`);
+    addLog(`💥 ${t.emoji} ${t.name} zerstört!${surprised ? ' (Überraschung!)' : ''}`);
   } else {
     Sound.play('hit');
     addLog(`${how}: ${t.emoji} −${dmg}`);
+    if (e.mode === 'sleep') e.mode = 'guard';
+    e.alert = 6;
+    if (wasCalm) raiseAlarm([e]);
   }
 }
 
 // ---------- Gegnerzug ----------
+const ALERT_TURNS = 6, ALARM_RADIUS = 7, WAKE_RADIUS = 2;
+
 function enemiesAct() {
   const p = G.player;
   const dist = bfs(p.x, p.y, () => true);
-  for (const e of G.enemies) {
+  const spotted = [];
+  for (const e of G.enemies.slice()) {
     const t = ENEMY_TYPES[e.type];
-    const d = Math.abs(e.x - p.x) + Math.abs(e.y - p.y);
-    if (G.visible[idx(e.x, e.y)] && d <= t.sight) e.alert = 6;
-    else if (e.alert > 0) e.alert--;
+    const d = manhattan(e, p);
+    const sees = G.visible[idx(e.x, e.y)] && d <= t.sight;
 
-    if (d === 1) { enemyAttack(e, t); continue; }
+    if (e.mode === 'sleep') {
+      // Schlafende Drohnen wachen nur auf, wenn man direkt an ihnen vorbeiläuft
+      if (sees && d <= WAKE_RADIUS) { e.mode = 'guard'; e.alert = ALERT_TURNS; spotted.push(e); }
+      continue;
+    }
 
-    let moves = Object.values(DIRS).map(([dx, dy]) => [e.x + dx, e.y + dy])
-      .filter(([x, y]) => passable(x, y) && !occupied(x, y));
-    if (!moves.length) continue;
+    if (sees) { if (e.alert === 0) spotted.push(e); e.alert = ALERT_TURNS; }
+    else if (e.alert > 0 && --e.alert === 0) floatText(e.x, e.y, '❓', '#9aa6c0');
+
+    if (d === 1 && e.alert > 0) { enemyAttack(e, t); continue; }
 
     if (e.alert > 0) {
       const cur = dist[idx(e.x, e.y)];
-      moves = moves.filter(([x, y]) => dist[idx(x, y)] !== -1 && dist[idx(x, y)] < cur);
+      const moves = freeSteps(e).filter(([x, y]) => dist[idx(x, y)] !== -1 && dist[idx(x, y)] < cur);
       if (moves.length) [e.x, e.y] = pick(moves);
+    } else if (e.mode === 'patrol') {
+      patrolStep(e);
     } else if (Math.random() < 0.4) {
-      [e.x, e.y] = pick(moves);
+      // Wachen bleiben in ihrem Raum
+      const moves = freeSteps(e).filter(([x, y]) => e.home < 0 || G.roomAt[idx(x, y)] === e.home);
+      if (moves.length) [e.x, e.y] = pick(moves);
     }
+  }
+  if (spotted.length) raiseAlarm(spotted);
+}
+
+function freeSteps(e) {
+  return Object.values(DIRS).map(([dx, dy]) => [e.x + dx, e.y + dy])
+    .filter(([x, y]) => passable(x, y) && !occupied(x, y));
+}
+
+// Patrouille: von Raum zu Raum laufen
+function patrolStep(e) {
+  if (!e.route || e.route.dist[idx(e.x, e.y)] === 0 || e.route.stuck > 3) {
+    const ri = rand(0, G.rooms.length - 1);
+    const r = G.rooms[ri];
+    const tx = rand(r.x, r.x + r.w - 1), ty = rand(r.y, r.y + r.h - 1);
+    if (G.props.has(idx(tx, ty)) || isStation(tx, ty)) return;
+    e.route = { dist: bfs(tx, ty, (x, y) => !isStation(x, y)), stuck: 0 };
+  }
+  const dist = e.route.dist, cur = dist[idx(e.x, e.y)];
+  const moves = freeSteps(e).filter(([x, y]) => dist[idx(x, y)] !== -1 && dist[idx(x, y)] < cur);
+  if (moves.length) [e.x, e.y] = pick(moves);
+  else e.route.stuck++;
+}
+
+// Drohnen entdecken den Captain und alarmieren ihre Nachbarn (eine Meldung pro Runde)
+function raiseAlarm(spotters) {
+  const alerted = new Set(spotters);
+  for (const e of spotters) {
+    floatText(e.x, e.y, '❗', '#ff5a6e');
+    for (const o of G.enemies) {
+      if (alerted.has(o) || o.alert > 0 || manhattan(o, e) > ALARM_RADIUS) continue;
+      if (o.mode === 'sleep') o.mode = 'guard';
+      o.alert = ALERT_TURNS;
+      alerted.add(o);
+      floatText(o.x, o.y, '❗', '#ff5a6e');
+    }
+  }
+  if (alerted.size > 1) {
+    Sound.play('alarm');
+    addLog(`🚨 Alarm! ${alerted.size} Drohnen jagen dich.`);
+  } else {
+    Sound.play('wake');
+    addLog(`${ENEMY_TYPES[spotters[0].type].emoji} hat dich entdeckt!`);
   }
 }
 
@@ -561,7 +783,7 @@ const EMOJI_FONT = '"Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans
 let tile = 40, dpr = 1;
 
 const COLORS = {
-  floor: '#1a2233', floorAlt: '#1d2638', corridor: '#161c2a', door: '#2a2233',
+  corridor: '#161c2a', door: '#2a2233',
   fog: 'rgba(0,0,0,0.6)', laser: '#4fd1ff', hit: 'rgba(255,255,255,0.55)',
 };
 
@@ -688,9 +910,15 @@ function render(now = performance.now()) {
       if (t === T.WALL) {
         if (isWallEdge(x, y)) drawEmoji(E.wall, mx(x), my(y), 0.92);
       } else {
-        ctx.fillStyle = t === T.DOOR ? COLORS.door : G.roomAt[i] >= 0 ? ((x + y) & 1 ? COLORS.floor : COLORS.floorAlt) : COLORS.corridor;
+        const ri = G.roomAt[i];
+        ctx.fillStyle = t === T.DOOR ? COLORS.door : ri >= 0 ? ROOM_THEMES[G.rooms[ri].theme].floor[(x + y) & 1] : COLORS.corridor;
         ctx.fillRect(px(x), py(y), tile + 0.5, tile + 0.5);
         if (t === T.DOOR) drawEmoji(E.door, mx(x), my(y), 0.75);
+        const deco = G.deco.get(i);
+        if (deco === 'vent') drawVent(px(x), py(y));
+        else if (deco === 'bolt') drawEmoji('🔩', px(x) + tile * 0.3, py(y) + tile * 0.7, 0.32, 0.45);
+        const pr = G.props.get(i);
+        if (pr) drawEmoji(PROPS[pr.type].emoji, mx(x), my(y), PROPS[pr.type].scale);
         const it = G.items.get(i);
         if (it) {
           // Items schweben leicht
@@ -710,8 +938,15 @@ function render(now = performance.now()) {
     if (!G.visible[idx(e.x, e.y)]) continue;
     const [bx, by] = bumpOffset(e, now);
     const ex = mx(e.rx + bx), ey = my(e.ry + by);
-    const hover = Math.sin(now / 260 + e.x * 3) * tile * 0.03;
-    drawEmoji(ENEMY_TYPES[e.type].emoji, ex, ey + hover, 0.78);
+    const asleep = e.mode === 'sleep';
+    const hover = asleep ? 0 : Math.sin(now / 260 + e.x * 3) * tile * 0.03;
+    drawEmoji(ENEMY_TYPES[e.type].emoji, ex, ey + hover, 0.78, asleep ? 0.7 : 1);
+    if (asleep) {
+      const zz = (now / 900 + e.x * 0.37) % 1;
+      drawEmoji('💤', ex + tile * 0.3, ey - tile * (0.25 + zz * 0.15), 0.34, 1 - zz * 0.6);
+    } else if (e.alert > 0) {
+      drawEmoji('❗', ex + tile * 0.32, ey - tile * 0.3, 0.3);
+    }
     if (e.hp < e.maxHp) {
       const l = ex - tile * 0.35, top = ey - tile * 0.44;
       ctx.fillStyle = '#400';
@@ -754,7 +989,7 @@ function render(now = performance.now()) {
     } else if (f.type === 'hit') {
       const ent = f.ent;
       ctx.globalAlpha = 1 - t;
-      ctx.fillStyle = COLORS.hit;
+      ctx.fillStyle = f.color || COLORS.hit;
       ctx.beginPath();
       ctx.arc(mx(ent.rx), my(ent.ry), tile * 0.4, 0, Math.PI * 2);
       ctx.fill();
@@ -797,6 +1032,21 @@ function render(now = performance.now()) {
 
   // Items und Station schweben/pulsieren – dafür langsam weiterzeichnen
   scheduleIdle();
+}
+
+// Lüftungsgitter auf dem Boden
+function drawVent(x, y) {
+  const m = tile * 0.22, w = tile - 2 * m;
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.fillRect(x + m, y + m, w, w);
+  ctx.strokeStyle = 'rgba(140,160,190,0.18)';
+  ctx.lineWidth = Math.max(1, tile * 0.03);
+  ctx.beginPath();
+  for (let k = 1; k <= 3; k++) {
+    const yy = y + m + (w * k) / 4;
+    ctx.moveTo(x + m + 2, yy); ctx.lineTo(x + m + w - 2, yy);
+  }
+  ctx.stroke();
 }
 
 // Idle-Animation (schwebende Items) mit wenigen Bildern pro Sekunde, spart Akku
