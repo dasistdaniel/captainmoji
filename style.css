@@ -587,11 +587,20 @@ button {
 .lab-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 #lab-stats { color: var(--dim); font-size: 12px; }
 .lab-meta { display: flex; flex-direction: column; gap: 2px; }
+.lab-meta { gap: 6px; }
 .panel .lab-reset {
   align-self: flex-start;
-  padding: 0;
-  background: none; border: 0; color: #4a5470; font-size: 11px; cursor: pointer; text-decoration: underline;
+  padding: 5px 12px;
+  border: 1px solid #5a2a35;
+  border-radius: 8px;
+  background: none;
+  color: #e08a98;
+  font-size: 12px;
+  cursor: pointer;
 }
+/* zweiter Klick nötig: Button wird rot */
+.panel .lab-reset.confirm { background: var(--danger); border-color: var(--danger); color: #fff; font-weight: 700; }
+.panel .lab-reset.done { border-color: #2f6b3a; color: #8ef58e; }
 @media (max-height: 460px) {
   #lab { padding: 6px; }
   .lab-head h1 { font-size: 18px; }

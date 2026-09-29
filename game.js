@@ -2450,10 +2450,25 @@ document.getElementById('screen-lab').addEventListener('click', showLab);
 document.getElementById('title-lab').addEventListener('click', showLab);
 document.getElementById('lab-back').addEventListener('click', showTitle);
 document.getElementById('lab-start').addEventListener('click', startRun);
-document.getElementById('lab-reset').addEventListener('click', () => {
-  if (!confirm('Alle Datenkerne, Upgrades und Statistiken löschen?')) return;
+// Zurücksetzen braucht einen zweiten Klick innerhalb von 4 Sekunden
+let resetTimer = 0;
+document.getElementById('lab-reset').addEventListener('click', ev => {
+  const btn = ev.currentTarget;
+  clearTimeout(resetTimer);
+  const restore = () => { btn.className = 'lab-reset'; btn.textContent = '🗑️ Fortschritt zurücksetzen'; };
+  if (!btn.classList.contains('confirm')) {
+    btn.className = 'lab-reset confirm';
+    btn.textContent = 'Wirklich alles löschen? Nochmal klicken';
+    Sound.play('warn');
+    resetTimer = setTimeout(restore, 4000);
+    return;
+  }
   Meta.reset();
+  Sound.play('deny');
   renderLab();
+  btn.className = 'lab-reset done';
+  btn.textContent = '✔ Zurückgesetzt';
+  resetTimer = setTimeout(restore, 2500);
 });
 document.getElementById('brief-go').addEventListener('click', closeBriefing);
 document.getElementById('pause-resume').addEventListener('click', closePause);
