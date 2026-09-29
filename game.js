@@ -1,5 +1,5 @@
 'use strict';
-// Captain Moji – Prototyp: Deck 1 🛡️ Schilde
+// Captain Moji – Deck 1 🛡️ Schilde, Deck 2 🫁 Lebenserhaltung
 
 // ---------- Konstanten & Konfiguration ----------
 const VIEW_W = 15, VIEW_H = 9;
@@ -11,21 +11,35 @@ const DIRS = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
 const E = {
   captain: '🧑‍🚀', drone: '🤖', wall: '🟫', door: '🚪',
   wrench: '🔧', battery: '🔋', medkit: '🩹', generator: '🛡️',
-  terminal: '🖥️', crate: '📦',
+  terminal: '🖥️', crate: '📦', elevator: '🛗',
+  lifesupport: '🫁', o2: '🫧', leak: '💨', spore: '🦠',
 };
 
 const PLAYER_BASE = { maxHp: 10, ammo: 3, meleeDmg: 2, blasterDmg: 3, blasterRange: 6 };
 
+// Boni der reparierten Stationen
+const SHIELD_RECHARGE = 15; // Züge, bis der Schild nach einem abgefangenen Treffer wieder bereit ist
+const REGEN_EVERY = 12;     // alle n Züge +1 ❤️
+
+// Sauerstoff (Decks mit `oxygen`)
+const O2_MAX = 100;
+const O2_SUFFOCATE_EVERY = 2; // ohne O₂: alle n Züge −1 ❤️
+
 const ENEMY_TYPES = {
-  drone: { emoji: E.drone, name: 'Sicherheitsdrohne', hp: 3, dmg: 1, hit: 0.75, sight: 8 },
+  drone: { emoji: E.drone, name: 'Sicherheitsdrohne', hp: 3, dmg: 1, hit: 0.75, sight: 8, alarm: true },
+  // Sporen bewegen sich nicht, greifen nur Nachbarfelder an und vermehren sich
+  spore: { emoji: E.spore, name: 'Sporenkolonie', hp: 1, dmg: 1, hit: 0.6, sight: 1, static: true, spread: 0.022 },
 };
 
 // Hindernisse im Raum. Alle blockieren Bewegung und Schüsse, aber nicht die Sicht.
 const PROPS = {
-  crate:    { emoji: E.crate,    name: 'Kiste',    scale: 0.72, hp: 2 },
-  terminal: { emoji: E.terminal, name: 'Terminal', scale: 0.72 },
-  bed:      { emoji: '🛏️',       name: 'Koje',     scale: 0.8 },
-  plant:    { emoji: '🪴',       name: 'Pflanze',  scale: 0.7 },
+  crate:    { emoji: E.crate,    name: 'Kiste',       scale: 0.72, hp: 2 },
+  terminal: { emoji: E.terminal, name: 'Terminal',    scale: 0.72 },
+  bed:      { emoji: '🛏️',       name: 'Koje',        scale: 0.8 },
+  plant:    { emoji: '🪴',       name: 'Pflanze',     scale: 0.7 },
+  sprout:   { emoji: '🌱',       name: 'Setzling',    scale: 0.62 },
+  o2:       { emoji: E.o2,       name: 'O₂-Station',  scale: 0.75 },
+  elevator: { emoji: E.elevator, name: 'Aufzug',      scale: 0.85 },
 };
 
 // Raumtypen: eigener Boden, eigene Hindernisse. `scatter` = frei im Raum statt an der Wand.
@@ -37,21 +51,50 @@ const ROOM_THEMES = {
   quartier:  { name: 'Mannschaftsquartier', icon: '🛏️',       floor: ['#1f1a2b', '#231d30'], props: { bed: [2, 3], plant: [0, 1] } },
   technik:   { name: 'Technikraum',         icon: '🔩',       floor: ['#172420', '#1a2823'], props: { crate: [0, 2] }, bolts: 0.12 },
   messe:     { name: 'Messe',               icon: '🪴',       floor: ['#1a2233', '#1d2638'], props: { plant: [1, 3] } },
+  schleuse:  { name: 'Aufzugsvorraum',      icon: E.elevator, floor: ['#1c2130', '#202536'], props: { terminal: [1, 1] } },
+  hydro:     { name: 'Hydrokultur',         icon: '🌱',       floor: ['#15241a', '#18291d'], props: { sprout: [3, 6] }, scatter: true },
+  lifesupp:  { name: 'Lebenserhaltung',     icon: E.lifesupport, floor: ['#122429', '#15292f'], props: {}, bolts: 0.1 },
 };
 
-// Jedes Deck ist nur eine Konfiguration – weitere Decks kommen später dazu.
+// Reparierbare Schiffssysteme – jedes gibt einen dauerhaften Bonus für den Run
+const STATIONS = {
+  generator: {
+    emoji: E.generator, name: 'Schildgenerator', done: 'Schilde repariert!', bonus: 'shield',
+    bonusText: `${E.generator} Bonus: Dein Schild fängt ab jetzt regelmäßig einen Treffer ab.`,
+  },
+  lifesupport: {
+    emoji: E.lifesupport, name: 'Lebenserhaltung', done: 'Lebenserhaltung läuft wieder!', bonus: 'regen',
+    bonusText: `${E.lifesupport} Bonus: Du regenerierst langsam ❤️.`,
+  },
+};
+
+// Jedes Deck ist nur eine Konfiguration.
 const DECKS = [
   {
     id: 1, name: 'Schilde', icon: E.generator,
     w: 50, h: 30, maxRooms: 10,
+    startTheme: 'bruecke', stationTheme: 'generator',
     themes: ['lager', 'lager', 'kontroll', 'quartier', 'technik', 'messe'],
     enemies: { drone: [5, 7] },
-    // Verhalten der Gegner: schlafend 💤, patrouillierend, bewachend
+    // Verhalten der Drohnen: schlafend 💤, patrouillierend, bewachend
     modes: { sleep: 0.35, patrol: 0.3, guard: 0.35 },
     items: { medkit: [1, 2], battery: [2, 3] },
     crateLoot: { battery: 0.3, medkit: 0.15 },
     goalItem: 'wrench', station: 'generator', goalMinRooms: 3,
     intro: 'Finde das 🔧 und bring es zum 🛡️ Schildgenerator.',
+  },
+  {
+    id: 2, name: 'Lebenserhaltung', icon: E.lifesupport,
+    w: 50, h: 30, maxRooms: 10,
+    startTheme: 'schleuse', stationTheme: 'lifesupp',
+    themes: ['hydro', 'hydro', 'quartier', 'technik', 'lager', 'messe', 'kontroll'],
+    enemies: { drone: [3, 4], spore: [3, 4] },
+    modes: { sleep: 0.3, patrol: 0.35, guard: 0.35 },
+    items: { medkit: [1, 2], battery: [2, 3] },
+    crateLoot: { battery: 0.3, medkit: 0.2 },
+    goalItem: 'wrench', station: 'lifesupport', goalMinRooms: 3,
+    oxygen: { drain: 0.35, perLeak: 0.15, stations: [3, 4], leaks: [4, 6], sporeCap: 30 },
+    intro: 'O₂ wird knapp! 💨 Lecks abdichten, an 🫧 tanken, 🔧 zur 🫁 bringen.',
   },
 ];
 
@@ -76,18 +119,28 @@ function rollTable(table) {
 
 // ---------- Spielzustand ----------
 let G = null;        // aktueller Run
-let state = 'title'; // title | play | dead | won
+let state = 'title'; // title | play | travel | dead | won
 
-function newRun() {
+function newRun(deckIndex = 0) {
   G = {
-    deckIndex: 0,
+    deckIndex,
+    turn: 0,
     player: { x: 0, y: 0, hp: PLAYER_BASE.maxHp, maxHp: PLAYER_BASE.maxHp,
-              ammo: PLAYER_BASE.ammo, medkits: 0, hasTool: false, face: [1, 0] },
+              ammo: PLAYER_BASE.ammo, medkits: 0, hasTool: false, face: [1, 0],
+              bonuses: new Set(), shieldReady: false, shieldTimer: 0, o2: O2_MAX },
     log: [],
     effects: [],
     shake: { until: 0, mag: 0 },
   };
+  // Zum Testen späterer Decks: Boni der vorherigen Decks gleich mitgeben
+  for (let i = 0; i < deckIndex; i++) grantBonus(STATIONS[DECKS[i].station].bonus);
   loadDeck(DECKS[G.deckIndex]);
+}
+
+function grantBonus(bonus) {
+  const p = G.player;
+  p.bonuses.add(bonus);
+  if (bonus === 'shield') { p.shieldReady = true; p.shieldTimer = 0; }
 }
 
 // ---------- Deck-Generierung ----------
@@ -101,19 +154,23 @@ function loadDeck(cfg) {
     if (hops.filter(h => h >= cfg.goalMinRooms).length >= 2) break;
   }
   Object.assign(G, map, {
-    cfg, enemies: [], items: new Map(), props: new Map(), deco: new Map(), station: null,
-    visitedRooms: new Set([0]),
+    cfg, enemies: [], items: new Map(), props: new Map(), deco: new Map(), leaks: new Map(), station: null,
+    visitedRooms: new Set([0]), sporeWarned: false,
     explored: new Uint8Array(map.w * map.h), visible: new Uint8Array(map.w * map.h),
     fade: new Float32Array(map.w * map.h), // angezeigte Helligkeit je Feld, gleitet zum Zielwert
   });
 
   const { rooms } = G;
   const start = rooms[0];
-  G.player.x = G.player.rx = start.cx;
-  G.player.y = G.player.ry = start.cy;
+  const p = G.player;
+  p.x = p.rx = start.cx;
+  p.y = p.ry = start.cy;
+  p.hasTool = false;
+  p.o2 = O2_MAX;
+  p.bump = null;
 
   // Station in den am weitesten entfernten Raum – gemessen in Räumen, bei Gleichstand in Feldern
-  const dist = bfs(G.player.x, G.player.y, () => true);
+  const dist = bfs(p.x, p.y, () => true);
   const hops = roomHops(0);
   const tileDist = i => dist[idx(rooms[i].cx, rooms[i].cy)];
   let far = 1;
@@ -121,9 +178,18 @@ function loadDeck(cfg) {
     if (hops[i] > hops[far] || (hops[i] === hops[far] && tileDist(i) > tileDist(far))) far = i;
   G.station = { x: rooms[far].cx, y: rooms[far].cy, type: cfg.station, repaired: false, room: far };
 
-  rooms.forEach((r, i) => { r.theme = i === 0 ? 'bruecke' : i === far ? 'generator' : pick(cfg.themes); });
+  rooms.forEach((r, i) => { r.theme = i === 0 ? cfg.startTheme : i === far ? cfg.stationTheme : pick(cfg.themes); });
+  // Aufzug zum nächsten Deck – erst nutzbar, wenn die Station repariert ist
+  if (!tryPlaceProp(far, 'elevator', false, 200)) tryPlaceProp(far, 'elevator', true, 200);
+  if (cfg.oxygen) {
+    // eine O₂-Station immer im Startraum, damit man sie kennenlernt
+    tryPlaceProp(0, 'o2', false, 80);
+    const n = rand(...cfg.oxygen.stations) - 1;
+    for (let i = 0; i < n; i++) tryPlaceProp(rand(1, rooms.length - 1), 'o2', false, 80);
+  }
   rooms.forEach((r, i) => placeProps(i));
   placeDeco();
+  if (cfg.oxygen) placeLeaks(rand(...cfg.oxygen.leaks));
 
   // Zielitem weder im Start- noch im Stationsraum und mindestens `goalMinRooms` Räume vom Start entfernt
   const others = rooms.map((r, i) => i).filter(i => i !== 0 && i !== far);
@@ -139,13 +205,44 @@ function loadDeck(cfg) {
     const n = rand(a, b);
     for (let i = 0; i < n; i++) {
       const ri = rand(1, rooms.length - 1);
-      const p = freeTileInRoom(ri);
-      if (p) G.enemies.push(makeEnemy(type, p.x, p.y, rollTable(cfg.modes) || 'guard', ri));
+      const pos = freeTileInRoom(ri);
+      if (!pos) continue;
+      const mode = ENEMY_TYPES[type].static ? 'static' : rollTable(cfg.modes) || 'guard';
+      G.enemies.push(makeEnemy(type, pos.x, pos.y, mode, ri));
     }
   }
 
   updateFov();
-  addLog(`${cfg.icon} Deck ${cfg.id}: ${cfg.name}. ${cfg.intro}`);
+  addLog(`${cfg.icon} Deck ${cfg.id}: ${cfg.name}`);
+  addLog(cfg.intro);
+}
+
+// Lecks sitzen in Raumwänden; man dichtet sie ab, indem man gegen sie läuft
+function placeLeaks(n) {
+  const spots = [];
+  for (let i = 0; i < G.tiles.length; i++) {
+    if (G.tiles[i] !== T.WALL) continue;
+    const x = i % G.w, y = (i / G.w) | 0;
+    const floors = Object.values(DIRS).filter(([dx, dy]) => {
+      if (!inBounds(x + dx, y + dy)) return false;
+      const ni = idx(x + dx, y + dy);
+      return G.tiles[ni] === T.FLOOR && G.roomAt[ni] > 0 && !G.props.has(ni);
+    });
+    if (floors.length === 1) spots.push({ x, y, dir: floors[0] });
+  }
+  const leaks = [];
+  for (let tries = 0; tries < 200 && leaks.length < n && spots.length; tries++) {
+    const s = pick(spots);
+    if (leaks.some(l => manhattan(l, s) < 5)) continue;
+    leaks.push(s);
+    G.leaks.set(idx(s.x, s.y), { x: s.x, y: s.y, dir: s.dir, active: true });
+  }
+}
+
+function activeLeaks() {
+  let n = 0;
+  for (const l of G.leaks.values()) if (l.active) n++;
+  return n;
 }
 
 function generateMap(cfg) {
@@ -208,24 +305,31 @@ function generateMap(cfg) {
   return { w, h, tiles, roomAt, rooms };
 }
 
-// Hindernisse eines Raums setzen – nie so, dass ein Bodenfeld unerreichbar wird
+// Hindernisse eines Raums setzen
 function placeProps(ri) {
-  const r = G.rooms[ri], theme = ROOM_THEMES[r.theme];
+  const theme = ROOM_THEMES[G.rooms[ri].theme];
   for (const [type, [a, b]] of Object.entries(theme.props)) {
-    let n = rand(a, b);
-    for (let tries = 0; n > 0 && tries < 40; tries++) {
-      const x = rand(r.x, r.x + r.w - 1), y = rand(r.y, r.y + r.h - 1);
-      const atWall = x === r.x || x === r.x + r.w - 1 || y === r.y || y === r.y + r.h - 1;
-      if (!theme.scatter && !atWall) continue;
-      if (occupied(x, y) || (x === r.cx && y === r.cy)) continue;
-      // nicht direkt vor Eingänge stellen
-      if (Object.values(DIRS).some(([dx, dy]) => passable(x + dx, y + dy) && G.roomAt[idx(x + dx, y + dy)] !== ri)) continue;
-      const key = idx(x, y);
-      G.props.set(key, { type, x, y, hp: PROPS[type].hp || 0 });
-      if (allReachable()) n--;
-      else G.props.delete(key);
-    }
+    const n = rand(a, b);
+    for (let k = 0; k < n; k++) tryPlaceProp(ri, type, theme.scatter, 40);
   }
+}
+
+// Ein Hindernis in Raum `ri` setzen – nie so, dass ein Bodenfeld unerreichbar wird
+function tryPlaceProp(ri, type, scatter, tries) {
+  const r = G.rooms[ri];
+  for (let t = 0; t < tries; t++) {
+    const x = rand(r.x, r.x + r.w - 1), y = rand(r.y, r.y + r.h - 1);
+    const atWall = x === r.x || x === r.x + r.w - 1 || y === r.y || y === r.y + r.h - 1;
+    if (!scatter && !atWall) continue;
+    if (occupied(x, y) || (x === r.cx && y === r.cy)) continue;
+    // nicht direkt vor Eingänge stellen
+    if (Object.values(DIRS).some(([dx, dy]) => passable(x + dx, y + dy) && G.roomAt[idx(x + dx, y + dy)] !== ri)) continue;
+    const key = idx(x, y);
+    G.props.set(key, { type, x, y, hp: PROPS[type].hp || 0 });
+    if (allReachable()) return true;
+    G.props.delete(key);
+  }
+  return false;
 }
 
 // Wie viele Räume liegen zwischen Raum `from` und jedem anderen Raum? (Graph über Gänge)
@@ -445,6 +549,13 @@ const Sound = (() => {
     beep:    () => arp([880, 1175, 880], 'square', 0.06, 0.06, 0.04),
     alarm:   () => arp([740, 988, 740, 988], 'square', 0.1, 0.09, 0.05),
     wake:    () => tone({ type: 'sine', f0: 200, f1: 700, dur: 0.25, vol: 0.07 }),
+    seal:     () => { noise({ dur: 0.35, vol: 0.18, freq: 5000 }); arp([392, 523], 'triangle', 0.12, 0.12, 0.09); },
+    o2:       () => arp([392, 494, 587, 784], 'sine', 0.06, 0.18, 0.1),
+    shield:   () => { tone({ type: 'sine', f0: 1600, f1: 700, dur: 0.3, vol: 0.12 }); noise({ dur: 0.1, vol: 0.1, freq: 4000 }); },
+    shieldup: () => tone({ type: 'sine', f0: 500, f1: 1400, dur: 0.25, vol: 0.07 }),
+    warn:     () => arp([880, 660, 880, 660], 'square', 0.12, 0.1, 0.05),
+    squish:   () => { noise({ dur: 0.18, vol: 0.2, freq: 600 }); tone({ type: 'sine', f0: 300, f1: 90, dur: 0.15, vol: 0.08 }); },
+    elevator: () => { tone({ type: 'sawtooth', f0: 80, f1: 320, dur: 1.2, vol: 0.06 }); arp([523, 659, 784], 'triangle', 0.15, 0.25, 0.09); },
   };
 
   return {
@@ -476,6 +587,8 @@ function playerMove(dir) {
   const prop = propAt(nx, ny);
   if (prop) return useProp(prop, dx, dy);
   if (isStation(nx, ny)) return useStation(dx, dy);
+  const leak = inBounds(nx, ny) && G.leaks.get(idx(nx, ny));
+  if (leak && leak.active) return sealLeak(leak, dx, dy);
   if (!passable(nx, ny)) { bump(p, dx, dy, 0.12); Sound.play('bump'); return false; }
 
   p.x = nx; p.y = ny;
@@ -502,6 +615,8 @@ function useProp(prop, dx, dy) {
   }
   bump(p, dx, dy, 0.12);
   if (prop.type === 'terminal') { useTerminal(prop); return false; }
+  if (prop.type === 'o2') return useO2Station(prop);
+  if (prop.type === 'elevator') { useElevator(); return false; }
   Sound.play('bump');
   return false;
 }
@@ -523,6 +638,40 @@ function damageProp(prop, dmg) {
   }
 }
 
+function sealLeak(leak, dx, dy) {
+  bump(G.player, dx, dy, 0.2);
+  leak.active = false;
+  sparks(leak.x, leak.y, '#d8e2f5', 12);
+  Sound.play('seal');
+  const left = activeLeaks();
+  floatText(leak.x, leak.y, 'abgedichtet', '#8ef58e');
+  addLog(`${E.leak} Leck abgedichtet! ${left ? `Noch ${left} ${left === 1 ? 'Leck' : 'Lecks'} an Bord.` : 'Alle Lecks dicht!'}`);
+  return true;
+}
+
+function useO2Station(prop) {
+  const p = G.player;
+  if (prop.used) { Sound.play('deny'); addLog(`${E.o2} Diese O₂-Station ist leer.`); return false; }
+  prop.used = true;
+  const gain = Math.round(O2_MAX - p.o2);
+  p.o2 = O2_MAX;
+  sparks(prop.x, prop.y, '#8fd8ff', 14);
+  floatText(p.x, p.y, `+${gain} O₂`, '#8fd8ff');
+  Sound.play('o2');
+  addLog(`${E.o2} Sauerstoff aufgefüllt. Die Station ist jetzt leer.`);
+  return true;
+}
+
+function useElevator() {
+  const st = STATIONS[G.station.type];
+  if (!G.station.repaired) {
+    Sound.play('deny');
+    addLog(`${E.elevator} Der Aufzug hat keinen Strom. Erst ${st.emoji} ${st.name} reparieren!`);
+    return;
+  }
+  travelToNextDeck();
+}
+
 const COMPASS = ['Osten', 'Südosten', 'Süden', 'Südwesten', 'Westen', 'Nordwesten', 'Norden', 'Nordosten'];
 function compass(from, to) {
   const a = Math.atan2(to.y - from.y, to.x - from.x);
@@ -536,17 +685,23 @@ function distWord(from, to) {
 // Terminals verraten, wo es weitergeht. Kostet keinen Zug.
 function useTerminal(prop) {
   const p = G.player;
+  const st = STATIONS[G.station.type];
   Sound.play('beep');
   addEffect({ type: 'hit', ent: { rx: prop.x, ry: prop.y }, ms: 250, color: 'rgba(79,209,255,0.5)' });
-  if (p.hasTool) {
-    addLog(`${E.terminal} Schildgenerator: im ${compass(prop, G.station)}, ${distWord(prop, G.station)}.`);
+  if (G.station.repaired) {
+    addLog(`${E.terminal} ${E.elevator} Aufzug: im ${compass(prop, G.station)}, ${distWord(prop, G.station)}.`);
+  } else if (p.hasTool) {
+    addLog(`${E.terminal} ${st.name}: im ${compass(prop, G.station)}, ${distWord(prop, G.station)}.`);
   } else {
     const tool = [...G.items.values()].find(i => i.type === G.cfg.goalItem);
     if (tool) addLog(`${E.terminal} Werkzeug-Signal ${E.wrench}: im ${compass(prop, tool)}, ${distWord(prop, tool)}.`);
   }
+  if (G.cfg.oxygen && activeLeaks()) {
+    addLog(`${E.terminal} Druckverlust: ${activeLeaks()} ${E.leak} Lecks aktiv.`);
+  }
   if (!prop.used) {
     prop.used = true;
-    // Schiffsplan: Der Raum mit dem Schildgenerator wird auf der Karte markiert
+    // Schiffsplan: Der Stationsraum wird auf der Karte markiert
     const r = G.rooms[G.station.room];
     for (let y = r.y - 1; y <= r.y + r.h; y++)
       for (let x = r.x - 1; x <= r.x + r.w; x++) G.explored[idx(x, y)] = 1;
@@ -559,6 +714,7 @@ function pickup() {
   const it = G.items.get(key);
   if (!it) return;
   G.items.delete(key);
+  const st = STATIONS[G.station.type];
   if (it.type === 'battery') {
     p.ammo += 2;
     floatText(p.x, p.y, `+2 ${E.battery}`, '#8ef58e');
@@ -573,26 +729,35 @@ function pickup() {
     p.hasTool = true;
     floatText(p.x, p.y, E.wrench, '#ffd84f');
     Sound.play('tool');
-    addLog(`${E.wrench} Werkzeug gefunden! Ab zum ${E.generator} Schildgenerator.`);
+    addLog(`${E.wrench} Werkzeug gefunden! Ab zur Station: ${st.emoji} ${st.name}.`);
   }
 }
 
 function useStation(dx, dy) {
   const p = G.player;
+  const st = STATIONS[G.station.type];
   bump(p, dx, dy, 0.15);
+  if (G.station.repaired) { Sound.play('bump'); return false; }
   if (!p.hasTool) {
     Sound.play('deny');
-    addLog(`${E.generator} Der Schildgenerator ist defekt. Du brauchst ein ${E.wrench}.`);
+    addLog(`${st.emoji} ${st.name} ist defekt. Du brauchst ein ${E.wrench}.`);
     return false;
   }
   p.hasTool = false;
   G.station.repaired = true;
-  state = 'won';
+  grantBonus(st.bonus);
   sparks(G.station.x, G.station.y, '#4fd1ff', 24);
-  floatText(G.station.x, G.station.y, 'Schilde online!', '#4fd1ff', 1400);
+  floatText(G.station.x, G.station.y, st.done, '#4fd1ff', 1400);
   Sound.play('win');
-  addLog(`${E.generator} Schilde repariert!`);
-  setTimeout(() => showScreen('won'), 1200);
+  addLog(`${st.emoji} ${st.done}`);
+  addLog(st.bonusText);
+  if (G.deckIndex + 1 < DECKS.length) {
+    const next = DECKS[G.deckIndex + 1];
+    addLog(`${E.elevator} Der Aufzug zu Deck ${next.id} hat wieder Strom!`);
+  } else {
+    state = 'won';
+    setTimeout(() => showScreen('won'), 1400);
+  }
   return false;
 }
 
@@ -651,19 +816,26 @@ function damageEnemy(e, dmg, how) {
   e.hp -= dmg;
   addEffect({ type: 'hit', ent: e, ms: 160 });
   floatText(e.x, e.y, `-${dmg}`, '#ffd84f');
-  sparks(e.x, e.y, '#ffcf4f', 8);
+  sparks(e.x, e.y, t.static ? '#9be36b' : '#ffcf4f', 8);
   if (e.hp <= 0) {
     G.enemies.splice(G.enemies.indexOf(e), 1);
-    addEffect({ type: 'boom', x: e.x, y: e.y, ms: 450 });
-    sparks(e.x, e.y, '#ff8a3d', 18);
-    shake(4, 180);
-    Sound.play('explode');
-    addLog(`💥 ${t.emoji} ${t.name} zerstört!${surprised ? ' (Überraschung!)' : ''}`);
+    if (t.static) {
+      sparks(e.x, e.y, '#9be36b', 14);
+      Sound.play('squish');
+      addLog(`${t.emoji} ${t.name} zerquetscht.`);
+    } else {
+      addEffect({ type: 'boom', x: e.x, y: e.y, ms: 450 });
+      sparks(e.x, e.y, '#ff8a3d', 18);
+      shake(4, 180);
+      Sound.play('explode');
+      addLog(`💥 ${t.emoji} ${t.name} zerstört!${surprised ? ' (Überraschung!)' : ''}`);
+    }
   } else {
     Sound.play('hit');
     addLog(`${how}: ${t.emoji} −${dmg}`);
+    if (t.static) return;
     if (e.mode === 'sleep') e.mode = 'guard';
-    e.alert = 6;
+    e.alert = ALERT_TURNS;
     if (wasCalm) raiseAlarm([e]);
   }
 }
@@ -678,8 +850,13 @@ function enemiesAct() {
   for (const e of G.enemies.slice()) {
     const t = ENEMY_TYPES[e.type];
     const d = manhattan(e, p);
-    const sees = G.visible[idx(e.x, e.y)] && d <= t.sight;
 
+    if (t.static) {
+      if (d === 1) enemyAttack(e, t);
+      continue;
+    }
+
+    const sees = G.visible[idx(e.x, e.y)] && d <= t.sight;
     if (e.mode === 'sleep') {
       // Schlafende Drohnen wachen nur auf, wenn man direkt an ihnen vorbeiläuft
       if (sees && d <= WAKE_RADIUS) { e.mode = 'guard'; e.alert = ALERT_TURNS; spotted.push(e); }
@@ -704,6 +881,30 @@ function enemiesAct() {
     }
   }
   if (spotted.length) raiseAlarm(spotted);
+  spreadSpores();
+}
+
+// Sporen wachsen auf freie Nachbarfelder – je länger man trödelt, desto mehr
+function spreadSpores() {
+  const cap = (G.cfg.oxygen && G.cfg.oxygen.sporeCap) || 40;
+  const spores = G.enemies.filter(e => ENEMY_TYPES[e.type].spread);
+  let count = spores.length, grown = 0;
+  for (const s of spores) {
+    if (count >= cap) break;
+    if (Math.random() > ENEMY_TYPES[s.type].spread) continue;
+    const spots = freeSteps(s).filter(([x, y]) => !isStation(x, y));
+    if (!spots.length) continue;
+    const [x, y] = pick(spots);
+    const n = makeEnemy(s.type, x, y, 'static', s.home);
+    n.rx = s.x; n.ry = s.y; // wächst sichtbar aus der Mutterkolonie heraus
+    G.enemies.push(n);
+    count++; grown++;
+    if (G.visible[idx(x, y)]) sparks(x, y, '#9be36b', 5);
+  }
+  if (grown && !G.sporeWarned && count >= 12) {
+    G.sporeWarned = true;
+    addLog(`${E.spore} Die Sporen breiten sich aus! Nicht trödeln.`);
+  }
 }
 
 function freeSteps(e) {
@@ -732,7 +933,7 @@ function raiseAlarm(spotters) {
   for (const e of spotters) {
     floatText(e.x, e.y, '❗', '#ff5a6e');
     for (const o of G.enemies) {
-      if (alerted.has(o) || o.alert > 0 || manhattan(o, e) > ALARM_RADIUS) continue;
+      if (alerted.has(o) || o.alert > 0 || !ENEMY_TYPES[o.type].alarm || manhattan(o, e) > ALARM_RADIUS) continue;
       if (o.mode === 'sleep') o.mode = 'guard';
       o.alert = ALERT_TURNS;
       alerted.add(o);
@@ -757,15 +958,60 @@ function enemyAttack(e, t) {
     addLog(`${t.emoji} verfehlt dich.`);
     return;
   }
-  p.hp -= t.dmg;
-  addEffect({ type: 'hurt', ms: 220 });
-  floatText(p.x, p.y, `-${t.dmg}`, '#ff5a6e');
-  shake(6, 220);
-  Sound.play('hurt');
+  if (p.shieldReady) {
+    // Schild-Bonus: Treffer wird abgefangen, danach lädt der Schild neu
+    p.shieldReady = false;
+    p.shieldTimer = SHIELD_RECHARGE;
+    addEffect({ type: 'shield', ms: 400 });
+    floatText(p.x, p.y, 'geblockt', '#4fd1ff');
+    Sound.play('shield');
+    addLog(`${E.generator} Dein Schild fängt den Treffer von ${t.emoji} ab!`);
+    return;
+  }
+  hurtPlayer(t.dmg);
   addLog(`${t.emoji} trifft dich: −${t.dmg} ❤️`);
 }
 
+function hurtPlayer(dmg) {
+  const p = G.player;
+  p.hp -= dmg;
+  addEffect({ type: 'hurt', ms: 220 });
+  floatText(p.x, p.y, `-${dmg}`, '#ff5a6e');
+  shake(6, 220);
+  Sound.play('hurt');
+}
+
 // ---------- Rundenablauf ----------
+// Was nach jedem Zug mit dem Captain passiert: Boni laden, Sauerstoff verbrauchen
+function tickPlayer() {
+  const p = G.player;
+  G.turn++;
+
+  if (p.bonuses.has('shield') && !p.shieldReady && --p.shieldTimer <= 0) {
+    p.shieldReady = true;
+    floatText(p.x, p.y, `${E.generator} bereit`, '#4fd1ff');
+    Sound.play('shieldup');
+  }
+  if (p.bonuses.has('regen') && G.turn % REGEN_EVERY === 0 && p.hp < p.maxHp) {
+    p.hp++;
+    floatText(p.x, p.y, '+1', '#6dff8a');
+  }
+
+  const ox = G.cfg.oxygen;
+  if (!ox) return;
+  const before = p.o2;
+  p.o2 = Math.max(0, p.o2 - (ox.drain + ox.perLeak * activeLeaks()));
+  if (before > 30 && p.o2 <= 30) { Sound.play('warn'); addLog(`${E.o2} Sauerstoff knapp! Such eine O₂-Station.`); }
+  if (before > 10 && p.o2 <= 10) { Sound.play('warn'); addLog(`${E.o2} Sauerstoff fast leer!`); }
+  if (p.o2 <= 0) {
+    p.o2Empty = (p.o2Empty || 0) + 1;
+    if (p.o2Empty % O2_SUFFOCATE_EVERY === 0) {
+      hurtPlayer(1);
+      addLog(`${E.o2} Kein Sauerstoff: −1 ❤️`);
+    }
+  } else p.o2Empty = 0;
+}
+
 function act(action) {
   if (state !== 'play') return;
   let used = false;
@@ -776,6 +1022,7 @@ function act(action) {
 
   if (state === 'play' && used) {
     enemiesAct();
+    tickPlayer();
     updateFov();
     if (G.player.hp <= 0) {
       G.player.hp = 0;
@@ -789,6 +1036,29 @@ function act(action) {
   }
   renderHud();
   requestRender();
+}
+
+// Mit dem Aufzug aufs nächste Deck: kurz schwarz, Deck-Titel, weiter geht's
+function travelToNextDeck() {
+  state = 'travel';
+  Sound.play('elevator');
+  const next = DECKS[G.deckIndex + 1];
+  const banner = document.getElementById('banner');
+  document.getElementById('banner-title').textContent = `${next.icon} Deck ${next.id}: ${next.name}`;
+  banner.classList.add('show');
+  setTimeout(() => {
+    G.deckIndex++;
+    G.effects = [];
+    G.log = [];
+    loadDeck(next);
+    renderHud();
+    resize();
+  }, 700);
+  setTimeout(() => {
+    banner.classList.remove('show');
+    state = 'play';
+    requestRender();
+  }, 2000);
 }
 
 // ---------- Effekte ----------
@@ -967,7 +1237,15 @@ function render(now = performance.now()) {
         if (deco === 'vent') drawVent(px(x), py(y));
         else if (deco === 'bolt') drawEmoji('🔩', px(x) + tile * 0.3, py(y) + tile * 0.7, 0.32, 0.45);
         const pr = G.props.get(i);
-        if (pr) drawEmoji(PROPS[pr.type].emoji, mx(x), my(y), PROPS[pr.type].scale);
+        if (pr) {
+          let alpha = 1, scale = PROPS[pr.type].scale;
+          if (pr.type === 'o2' && pr.used) alpha = 0.35;
+          if (pr.type === 'elevator') {
+            if (G.station.repaired) scale *= 1 + Math.sin(now / 250) * 0.06;
+            else alpha = 0.45;
+          }
+          drawEmoji(PROPS[pr.type].emoji, mx(x), my(y), scale, alpha);
+        }
         const it = G.items.get(i);
         if (it) {
           // Items schweben leicht
@@ -977,9 +1255,27 @@ function render(now = performance.now()) {
       }
       if (isStation(x, y)) {
         const pulse = G.station.repaired ? 1 : 0.85 + Math.sin(now / 300) * 0.05;
-        drawEmoji(G.station.repaired ? '✨' : E.generator, mx(x), my(y), pulse);
+        drawEmoji(G.station.repaired ? '✨' : STATIONS[G.station.type].emoji, mx(x), my(y), pulse);
       }
     }
+
+  // Lecks: Luft strömt aus der Wand in den Raum
+  for (const lk of G.leaks.values()) {
+    const i = idx(lk.x, lk.y);
+    if (G.fade[i] < 0.01 || lk.x < x0 - 1 || lk.x > x0 + VIEW_W + 1 || lk.y < y0 - 1 || lk.y > y0 + VIEW_H + 1) continue;
+    const [dx, dy] = lk.dir;
+    if (!lk.active) { drawEmoji('🔩', mx(lk.x + dx * 0.3), my(lk.y + dy * 0.3), 0.36); continue; }
+    // Riss in der Wand + ausströmende Luftwolken
+    ctx.fillStyle = 'rgba(10,14,24,0.85)';
+    ctx.beginPath();
+    ctx.arc(mx(lk.x + dx * 0.42), my(lk.y + dy * 0.42), tile * 0.16, 0, Math.PI * 2);
+    ctx.fill();
+    drawEmoji(E.leak, mx(lk.x + dx * 0.5), my(lk.y + dy * 0.5), 0.55);
+    for (let k = 0; k < 2; k++) {
+      const ph = (now / 900 + k * 0.5 + lk.x * 0.13) % 1;
+      drawEmoji(E.leak, mx(lk.x + dx * (0.55 + ph * 0.8)), my(lk.y + dy * (0.55 + ph * 0.8)), 0.5 + ph * 0.25, 0.9 * (1 - ph));
+    }
+  }
 
   // Gegner (nur auf sichtbaren Feldern)
   for (const e of G.enemies) {
@@ -987,9 +1283,14 @@ function render(now = performance.now()) {
     const [bx, by] = bumpOffset(e, now);
     const ex = mx(e.rx + bx), ey = my(e.ry + by);
     const asleep = e.mode === 'sleep';
-    const hover = asleep ? 0 : Math.sin(now / 260 + e.x * 3) * tile * 0.03;
-    drawEmoji(ENEMY_TYPES[e.type].emoji, ex, ey + hover, 0.78, asleep ? 0.7 : 1);
-    if (asleep) {
+    if (ENEMY_TYPES[e.type].static) {
+      // Sporen pulsieren statt zu schweben
+      drawEmoji(ENEMY_TYPES[e.type].emoji, ex, ey, 0.7 + Math.sin(now / 400 + e.x + e.y) * 0.05);
+    } else {
+      const hover = asleep ? 0 : Math.sin(now / 260 + e.x * 3) * tile * 0.03;
+      drawEmoji(ENEMY_TYPES[e.type].emoji, ex, ey + hover, 0.78, asleep ? 0.7 : 1);
+    }
+    if (ENEMY_TYPES[e.type].static) { /* keine Statusanzeige */ } else if (asleep) {
       const zz = (now / 900 + e.x * 0.37) % 1;
       drawEmoji('💤', ex + tile * 0.3, ey - tile * (0.25 + zz * 0.15), 0.34, 1 - zz * 0.6);
     } else if (e.alert > 0) {
@@ -1008,6 +1309,13 @@ function render(now = performance.now()) {
   if (state !== 'dead') {
     const [bx, by] = bumpOffset(p, now);
     const cx0 = mx(p.rx + bx), cy0 = my(p.ry + by);
+    if (p.shieldReady) {
+      ctx.strokeStyle = `rgba(79,209,255,${0.3 + Math.sin(now / 300) * 0.12})`;
+      ctx.lineWidth = Math.max(1.5, tile * 0.04);
+      ctx.beginPath();
+      ctx.arc(cx0, cy0, tile * 0.47, 0, Math.PI * 2);
+      ctx.stroke();
+    }
     drawEmoji(E.captain, cx0, cy0, 0.8);
     const [fx, fy] = p.face;
     const cx = cx0 + fx * tile * 0.47, cy = cy0 + fy * tile * 0.47;
@@ -1043,6 +1351,16 @@ function render(now = performance.now()) {
       ctx.beginPath();
       ctx.arc(mx(ent.rx), my(ent.ry), tile * 0.4, 0, Math.PI * 2);
       ctx.fill();
+      ctx.globalAlpha = 1;
+    } else if (f.type === 'shield') {
+      ctx.globalAlpha = 1 - t;
+      ctx.strokeStyle = COLORS.laser;
+      ctx.lineWidth = Math.max(2, tile * 0.08);
+      ctx.shadowColor = COLORS.laser; ctx.shadowBlur = 14;
+      ctx.beginPath();
+      ctx.arc(mx(p.rx), my(p.ry), tile * (0.45 + t * 0.5), 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
       ctx.globalAlpha = 1;
     } else if (f.type === 'boom') {
       drawEmoji('💥', mx(f.x), my(f.y), 0.6 + t * 0.7, 1 - t);
@@ -1154,7 +1472,26 @@ function renderHud() {
   const tool = document.getElementById('hud-tool');
   tool.textContent = p.hasTool ? `${E.wrench} ✔` : `${E.wrench} –`;
   tool.classList.toggle('got', p.hasTool);
-  document.getElementById('hud-deck').textContent = `${G.cfg.icon} Deck ${G.cfg.id}`;
+  document.getElementById('hud-deck').innerHTML = `${G.cfg.icon} <span class="long">Deck </span>${G.cfg.id}`;
+
+  const shield = document.getElementById('hud-shield');
+  shield.hidden = !p.bonuses.has('shield');
+  shield.textContent = p.shieldReady ? `${E.generator} ✔` : `${E.generator} ${p.shieldTimer}`;
+  shield.classList.toggle('ready', p.shieldReady);
+
+  const ox = G.cfg.oxygen;
+  const o2 = document.getElementById('hud-o2'), leaks = document.getElementById('hud-leaks');
+  o2.hidden = leaks.hidden = !ox;
+  if (ox) {
+    const pct = Math.ceil(p.o2);
+    document.getElementById('hud-o2-val').textContent = pct;
+    document.getElementById('hud-o2-fill').style.width = pct + '%';
+    o2.classList.toggle('low', pct <= 30);
+    o2.classList.toggle('empty', pct <= 0);
+    const n = activeLeaks();
+    leaks.textContent = `${E.leak} ${n}`;
+    leaks.classList.toggle('done', n === 0);
+  }
 }
 
 function renderSoundBtn() {
@@ -1177,11 +1514,11 @@ const SCREENS = {
   },
   dead: {
     emoji: '☠️', title: 'Captain gefallen', btn: 'Neuer Run',
-    text: 'Permadeath – der Run beginnt wieder bei Deck 1.',
+    text: () => `Du bist auf Deck ${G.cfg.id} (${G.cfg.name}) gefallen. Permadeath – der Run beginnt wieder bei Deck 1.`,
   },
   won: {
-    emoji: E.generator, title: 'Schilde repariert!', btn: 'Nochmal spielen',
-    text: 'Deck 1 geschafft. Die weiteren Decks sind noch im Bau – bis dahin: neuer Run?',
+    emoji: '🏆', title: 'Alle Decks geschafft!', btn: 'Nochmal spielen',
+    text: () => `${DECKS.map(d => d.icon).join(' ')} repariert! Die weiteren Decks sind noch im Bau – bis dahin: neuer Run?`,
   },
 };
 
@@ -1189,17 +1526,20 @@ function showScreen(name) {
   const s = SCREENS[name];
   document.getElementById('screen-emoji').textContent = s.emoji;
   document.getElementById('screen-title').textContent = s.title;
-  document.getElementById('screen-text').textContent = s.text;
+  document.getElementById('screen-text').textContent = typeof s.text === 'function' ? s.text() : s.text;
   document.getElementById('screen-btn').textContent = s.btn;
   document.getElementById('screen').classList.remove('hidden');
 }
 
+// Zum Testen: index.html?deck=2 startet direkt auf Deck 2 (mit den Boni der vorherigen Decks)
+const START_DECK = clamp((parseInt(new URLSearchParams(location.search).get('deck'), 10) || 1) - 1, 0, DECKS.length - 1);
+
 function startRun() {
-  if (state === 'play') return;
+  if (state === 'play' || state === 'travel') return;
   Sound.unlock();
   document.getElementById('screen').classList.add('hidden');
   document.getElementById('screen-btn').blur();
-  newRun();
+  newRun(START_DECK);
   state = 'play';
   renderHud();
   resize();

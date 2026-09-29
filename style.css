@@ -94,6 +94,47 @@ html, body {
   cursor: pointer;
 }
 #hud-tool.got { color: #ffd84f; font-weight: 700; }
+#hud [hidden] { display: none; }
+#hud-shield { color: var(--dim); }
+#hud-shield.ready { color: var(--accent); font-weight: 700; }
+#hud-o2 { display: inline-flex; align-items: center; gap: 4px; }
+#hud-o2 .bar {
+  display: inline-block;
+  width: 48px; height: 8px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  overflow: hidden;
+  background: #0a0f1a;
+}
+#hud-o2 .bar i { display: block; height: 100%; width: 100%; background: #8fd8ff; transition: width .25s; }
+#hud-o2.low { color: #ffb14f; }
+#hud-o2.low .bar i { background: #ffb14f; }
+#hud-o2.empty { color: var(--danger); font-weight: 700; animation: blink .8s infinite; }
+#hud-leaks.done { color: #8ef58e; }
+@keyframes blink { 50% { opacity: .35; } }
+
+/* Deck-Wechsel mit dem Aufzug */
+#banner {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .6s;
+  z-index: 15;
+}
+#banner.show { opacity: 1; pointer-events: auto; }
+#banner-title {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--accent);
+  transform: translateY(10px);
+  transition: transform 1.2s;
+}
+#banner.show #banner-title { transform: none; }
 
 #keys { color: var(--dim); font-size: 12px; line-height: 16px; }
 
@@ -108,7 +149,9 @@ html, body {
     justify-content: center;
   }
   #keys { display: none; }
-  #hud { font-size: 14px; line-height: 18px; gap: 10px; }
+  #hud { font-size: 13px; line-height: 18px; gap: 7px; }
+  #hud-o2 .bar { width: 30px; }
+  #hud .long { display: none; }
   #log { height: 30px; font-size: 12px; line-height: 15px; }
   #log div:not(:nth-last-child(-n+2)) { display: none; }
 }
