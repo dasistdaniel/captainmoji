@@ -2198,7 +2198,25 @@ const Title = (() => {
       c.fillStyle = `rgba(200,225,255,${0.2 + s.z * 0.8})`;
       c.fillRect(s.x, s.y, 1 + s.z * s.z * 11, s.z > 0.75 ? 2 : 1);
     }
+    moveShip(t / 1000);
     raf = requestAnimationFrame(frame);
+  }
+
+  // Die Rakete fliegt auf einer Überlagerung mehrerer Wellen umher (wirkt zufällig, wiederholt sich kaum)
+  // und neigt die Nase in Flugrichtung
+  const ship = el.querySelector('.t-ship');
+  function moveShip(s) {
+    const size = ship.offsetWidth;
+    // Position (Mittelpunkt) und ihre Ableitung für die Flugrichtung
+    const x = w * (0.5 + 0.36 * Math.sin(s * 0.11) + 0.06 * Math.sin(s * 0.37 + 1));
+    const y = h * (0.17 + 0.08 * Math.sin(s * 0.23 + 2) + 0.04 * Math.sin(s * 0.61));
+    const dx = w * (0.36 * 0.11 * Math.cos(s * 0.11) + 0.06 * 0.37 * Math.cos(s * 0.37 + 1));
+    const dy = h * (0.08 * 0.23 * Math.cos(s * 0.23 + 2) + 0.04 * 0.61 * Math.cos(s * 0.61));
+    // Die Rakete fliegt immer vorwärts (die Sterne ziehen vorbei) – das dämpft die Neigung
+    const forward = w * 0.12;
+    const tilt = clamp(Math.atan2(dy, forward + dx) * 180 / Math.PI, -20, 20);
+    const left = x - size / 2, top = Math.max(4, y - size / 2);
+    ship.style.transform = `translate(${left.toFixed(1)}px, ${top.toFixed(1)}px) rotate(${tilt.toFixed(1)}deg)`;
   }
 
   return {

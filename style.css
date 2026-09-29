@@ -453,16 +453,17 @@ button {
 }
 
 /* beschädigtes Schiff im Hintergrund */
+/* Position und Neigung setzt game.js jedes Bild – die Rakete kreuzt durch die obere Bildhälfte */
 .t-ship {
   position: absolute;
-  top: 12%;
-  right: 9%;
+  top: 0; left: 0;
   width: 1.2em; height: 1.2em;
   font-family: var(--emoji);
-  font-size: 56px;
+  font-size: clamp(56px, 9vw, 110px);
   line-height: 1;
-  animation: t-drift 9s ease-in-out infinite;
-  opacity: .9;
+  opacity: .95;
+  will-change: transform;
+  filter: drop-shadow(0 0 14px rgba(255, 140, 60, .25));
 }
 .t-ship span { position: absolute; left: 0; top: 0; }
 .t-ship .ship { transform: rotate(45deg); }
@@ -470,10 +471,6 @@ button {
 .t-ship .smoke { font-size: .45em; left: -18%; top: 32%; opacity: 0; animation: t-smoke 2.4s linear infinite; }
 .t-ship .s2 { animation-delay: .8s; }
 .t-ship .s3 { animation-delay: 1.6s; }
-@keyframes t-drift {
-  0%, 100% { transform: translate(0, 0) rotate(0); }
-  50% { transform: translate(-18px, 10px) rotate(-4deg); }
-}
 @keyframes t-fire { 0% { transform: scale(1); } 100% { transform: scale(.75) translateX(2px); } }
 @keyframes t-smoke {
   0% { opacity: .8; transform: translate(0, 0) scale(.6); }
@@ -488,7 +485,7 @@ button {
   .t-tag { font-size: 12.5px; max-width: 400px; }
   .t-route { font-size: 20px; }
   #title-start { padding: 9px 24px; font-size: 15px; }
-  .t-ship { font-size: 40px; top: 8%; right: 6%; }
+  .t-ship { font-size: 62px; }
 }
 @media (pointer: coarse) {
   .t-hint { display: none; }
