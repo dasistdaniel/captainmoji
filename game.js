@@ -116,12 +116,13 @@ const DECKS = [
     goalItem: 'wrench', station: 'generator', goalMinRooms: 3,
     intro: 'Finde das 🔧 und bring es zum 🛡️ Schildgenerator.',
     briefing: {
-      goal: 'Finde das 🔧 Werkzeug und repariere den 🛡️ Schildgenerator.',
-      tips: [
-        '🤖 Sicherheitsdrohnen patrouillieren. Schlafende 💤 überraschst du mit doppeltem Schaden.',
-        '🔫 Blaster schießt in Blickrichtung und kostet 🔋 – Nahkampf durch Hineinlaufen.',
-        '🖥️ Terminals zeigen dir die Richtung. 📦 Kisten enthalten manchmal 🔋 oder 🩹.',
-        '🛗 Danach bringt dich der Aufzug zum nächsten Deck.',
+      messages: [
+        'Captain, hören Sie mich? Hier Funke, Chefingenieur – ich sitze unten im Maschinenraum fest.',
+        'Das Schiff ist ein Wrack, aber noch nicht verloren. Wir fangen mit den Schilden an: Der 🛡️ Schildgenerator ist auf Ihrem Deck.',
+        'Ohne 🔧 Werkzeug kriegen Sie den nicht repariert. Irgendwo auf dem Deck muss eins herumliegen.',
+        'Vorsicht, die 🤖 Sicherheitsdrohnen sind durchgedreht. Schlafende 💤 erwischen Sie mit einem Überraschungsangriff – doppelter Schaden!',
+        'Die 🖥️ Terminals zeigen Ihnen die Richtung, und in 📦 Kisten finden Sie oft 🔋 oder 🩹.',
+        'Laufen die Schilde, hat der 🛗 Aufzug wieder Strom. Viel Glück, Captain. Funke Ende.',
       ],
       reward: '🛡️ Schild: fängt regelmäßig einen Treffer ab.',
     },
@@ -139,11 +140,12 @@ const DECKS = [
     oxygen: { drain: 0.35, perLeak: 0.15, stations: [3, 4], leaks: [4, 6], sporeCap: 30 },
     intro: 'O₂ wird knapp! 💨 Lecks abdichten, an 🫧 tanken, 🔧 zur 🫁 bringen.',
     briefing: {
-      goal: 'Finde das 🔧 Werkzeug und repariere die 🫁 Lebenserhaltung.',
-      tips: [
-        '🫧 Der Sauerstoff sinkt mit jedem Zug. O₂-Stationen füllen ihn einmal komplett auf.',
-        '💨 Lecks lassen den Sauerstoff schneller sinken – lauf dagegen, um sie abzudichten.',
-        '🦠 Sporen bewegen sich nicht, wachsen aber nach. Nicht trödeln!',
+      messages: [
+        'Gute Arbeit mit den Schilden, Captain! Aber wir haben das nächste Problem: Die 🫁 Lebenserhaltung ist ausgefallen.',
+        'Der Sauerstoff sinkt mit jedem Schritt. Die 🫧 O₂-Stationen füllen Ihren Tank einmal komplett auf – gut einteilen!',
+        'Überall zischen 💨 Lecks. Laufen Sie einfach dagegen, dann dichten Sie sie ab. Jedes Leck weniger spart Luft.',
+        'Und in den Lüftungen wächst etwas… 🦠 Sporen. Die bewegen sich nicht, aber sie vermehren sich. Nicht trödeln!',
+        'Bringen Sie ein 🔧 zur Lebenserhaltung, dann atmen wir alle wieder leichter. Funke Ende.',
       ],
       reward: '🫁 Lebenserhaltung: Du regenerierst langsam ❤️.',
     },
@@ -162,11 +164,12 @@ const DECKS = [
     armory: { loot: ['vest', 'battery', 'battery', 'medkit', 'core'] },
     intro: 'Aliens an Bord! 💳 Keycard finden, 🔒 Waffenkammer öffnen, 🔧 zur 🎯 bringen.',
     briefing: {
-      goal: 'Hol das 🔧 aus der 🔒 Waffenkammer und repariere die 🎯 Waffensysteme.',
-      tips: [
-        '👾 Aliens schlafen nie, halten 4 Treffer aus und treffen hart (−2 ❤️). Blaster auf Abstand hilft.',
-        '🔒 Die Waffenkammer öffnet nur mit der 💳 Keycard – drinnen warten 🦺 Schutzweste, 🔋 und 🩹.',
-        '🖥️ Terminals orten die Keycard für dich.',
+      messages: [
+        'Captain… wir haben 👾 Aliens an Bord. Die schlafen nicht, halten einiges aus und beißen hart.',
+        'Wir brauchen die 🎯 Waffensysteme. Das 🔧 Ersatzteil dafür liegt in der 🔒 Waffenkammer.',
+        'Die Tür öffnet nur mit einer 💳 Keycard. Die Terminals können sie für Sie orten.',
+        'In der Waffenkammer liegt auch eine 🦺 Schutzweste – ziehen Sie die an, glauben Sie mir.',
+        'Mit reparierten Waffensystemen trifft Ihr Blaster deutlich härter. Funke Ende.',
       ],
       reward: '🎯 Waffensysteme: Dein Blaster macht +1 Schaden.',
     },
@@ -186,11 +189,12 @@ const DECKS = [
     fire: { sources: [3, 4], spread: 0.05, burn: [16, 24], cap: 50, shortEvery: [20, 30] },
     intro: 'Finale! 🔥 Feuer, ☢️ Strahlung und das 🐙 Tentakelmonster vor dem ⚙️ Antrieb.',
     briefing: {
-      goal: 'Finde das 🔧 Antriebsteil, besiege das 🐙 Tentakelmonster und repariere den ⚙️ Antrieb.',
-      tips: [
-        '🔥 Feuer breitet sich aus und verbrennt dich (−1 ❤️). Mit 🧯 Feuerlöscher: gegen das Feuer laufen = löschen.',
-        '☢️ In Reaktorräumen sammelt sich Strahlung an – zu viel kostet ❤️. Nicht trödeln!',
-        '🐙 Das Tentakelmonster bewacht den Antrieb. Seine Tentakel reichen 2 Felder weit – halte Abstand und nutze den Blaster.',
+      messages: [
+        'Captain, Sie haben es bis zu mir geschafft! Willkommen im Maschinenraum – oder was davon übrig ist.',
+        'Hier brennt es 🔥 an allen Ecken. Mit dem 🧯 Feuerlöscher laufen Sie einfach gegen die Flammen.',
+        'Die Reaktorräume sind ☢️ verstrahlt. Rein, raus – bloß nicht herumstehen.',
+        'Und dann ist da noch… das 🐙 Ding. Es hat sich um den ⚙️ Antrieb gewickelt. Seine Tentakel reichen zwei Felder weit.',
+        'Halten Sie Abstand und nehmen Sie den Blaster. Das ist unsere letzte Chance, Captain. Funke Ende.',
       ],
       reward: '⚙️ Antrieb: Das Schiff ist gerettet!',
     },
@@ -1038,6 +1042,7 @@ function pickup() {
     floatText(p.x, p.y, E.keycard, '#ffd84f');
     Sound.play('tool');
     addLog(`${E.keycard} Keycard gefunden! Damit öffnest du die ${E.lock} Waffenkammer.`);
+    radio('Die Keycard! Jetzt ab zur Waffenkammer.');
   } else if (it.type === 'extinguisher') {
     p.extinguisher += EXTINGUISHER_CHARGES;
     floatText(p.x, p.y, `+${EXTINGUISHER_CHARGES} ${E.extinguisher}`, '#8fd8ff');
@@ -1054,6 +1059,7 @@ function pickup() {
     floatText(p.x, p.y, E.wrench, '#ffd84f');
     Sound.play('tool');
     addLog(`${E.wrench} Werkzeug gefunden! Ab zur Station: ${st.emoji} ${st.name}.`);
+    radio(`Das ist das Teil, Captain! Bringen Sie es zur Station: ${st.emoji} ${st.name}.`);
   }
 }
 
@@ -1093,6 +1099,7 @@ function useStation(dx, dy) {
   if (G.deckIndex + 1 < DECKS.length) {
     const next = DECKS[G.deckIndex + 1];
     addLog(`${E.elevator} Der Aufzug zu Deck ${next.id} hat wieder Strom – im ${compass(G.station, G.elevator)}, ${distWord(G.station, G.elevator)}.`);
+    radio(`Hervorragend, Captain! Kommen Sie mit dem 🛗 Aufzug runter zu Deck ${next.id}.`);
     floatText(G.elevator.x, G.elevator.y, 'Strom!', '#4fd1ff', 1400);
     markRoomOnMap(G.elevatorRoom);
   } else {
@@ -1174,6 +1181,7 @@ function damageEnemy(e, dmg, how) {
     Sound.play('roar');
     Sound.music('game', G.deckIndex);
     addLog(`${E.boss} Das Tentakelmonster ist besiegt! Der Weg zum ${E.drive} Antrieb ist frei.`);
+    radio('Unglaublich! Schnell, reparieren Sie den Antrieb!');
     collectCores(5, e);
     G.enemies = G.enemies.filter(m => m.type !== 'tentacle' || (sparks(m.x, m.y, '#c77dff', 8), false));
     renderBossBar();
@@ -1215,6 +1223,7 @@ function wakeBoss() {
   Sound.music('boss', G.deckIndex);
   floatText(b.x, b.y, 'ROAAR!', '#c77dff', 1300);
   addLog(`${E.boss} Das Tentakelmonster erwacht!`);
+  radio('Da ist es! Halten Sie Abstand, Captain!');
   renderBossBar();
 }
 
@@ -2209,26 +2218,66 @@ const Title = (() => {
 })();
 
 // ---------- Einsatzbesprechung ----------
+// Die Nachrichten tippen sich nacheinander ein – wie ein Funkspruch
+const CHIEF = { name: 'Chefingenieur Funke', emoji: '👨‍🔧' };
+let comms = null;
+
 function showBriefing() {
   const cfg = G.cfg, b = cfg.briefing;
   state = 'briefing';
-  document.getElementById('brief-icon').textContent = cfg.icon;
-  document.getElementById('brief-deck').textContent = `Deck ${cfg.id} von ${DECKS.length}`;
-  document.getElementById('brief-title').textContent = cfg.name;
-  document.getElementById('brief-goal').textContent = `🎯 ${b.goal}`;
-  document.getElementById('brief-tips').replaceChildren(...b.tips.map(t => {
-    const li = document.createElement('li'); li.textContent = t; return li;
-  }));
-  document.getElementById('brief-reward').textContent = `Belohnung – ${b.reward}`;
+  document.getElementById('comms-deck').textContent = `${cfg.icon} Deck ${cfg.id}/${DECKS.length} · ${cfg.name}`;
+  document.getElementById('brief-reward').textContent = `🎁 ${b.reward}`;
+  document.getElementById('comms-msgs').replaceChildren();
+  document.getElementById('brief-go').textContent = 'Weiter ▸▸';
   document.getElementById('briefing').classList.remove('hidden');
+  clearTimeout(comms && comms.timer);
+  comms = { msgs: b.messages, i: 0, pos: 0, el: null, done: false, timer: 0 };
+  comms.timer = setTimeout(typeComms, 450);
 }
 
+function typeComms() {
+  const c = comms, box = document.getElementById('comms-msgs');
+  if (!c || c.done) return;
+  if (!c.el) {
+    c.el = document.createElement('div');
+    c.el.className = 'comms-msg';
+    box.append(c.el);
+    Sound.play('comm');
+  }
+  const text = c.msgs[c.i];
+  c.pos = Math.min(text.length, c.pos + 2);
+  c.el.textContent = text.slice(0, c.pos);
+  box.scrollTop = box.scrollHeight;
+  if (c.pos < text.length) { c.timer = setTimeout(typeComms, 22); return; }
+  // Nachricht fertig – kurze Pause, dann die nächste
+  c.i++; c.pos = 0; c.el = null;
+  if (c.i >= c.msgs.length) return finishComms();
+  c.timer = setTimeout(typeComms, 550);
+}
+
+function finishComms() {
+  const c = comms, box = document.getElementById('comms-msgs');
+  clearTimeout(c.timer);
+  c.done = true;
+  box.replaceChildren(...c.msgs.map(m => { const d = document.createElement('div'); d.className = 'comms-msg'; d.textContent = m; return d; }));
+  box.scrollTop = box.scrollHeight;
+  document.getElementById('brief-go').textContent = 'Verstanden!';
+}
+
+// Erst den Funkspruch komplett zeigen, beim zweiten Mal geht es los
 function closeBriefing() {
   if (state !== 'briefing') return;
+  if (comms && !comms.done) { finishComms(); return; }
   document.getElementById('briefing').classList.add('hidden');
   document.getElementById('brief-go').blur();
   state = 'play';
   requestRender();
+}
+
+// kurzer Funkspruch im Log während des Spiels
+function radio(text) {
+  addLog(`${CHIEF.emoji} Funke: ${text}`);
+  Sound.play('comm');
 }
 
 // ---------- Pause / Abbrechen ----------

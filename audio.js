@@ -124,6 +124,7 @@ const Sound = (() => {
     short:    () => { noise({ dur: 0.15, vol: 0.2, freq: 8000 }); tone({ type: 'square', f0: 120, f1: 60, dur: 0.2, vol: 0.06 }); noise({ dur: 0.4, vol: 0.12, freq: 1200, delay: 0.1 }); },
     geiger:   () => { for (let i = 0; i < 3; i++) noise({ dur: 0.012, vol: 0.12, freq: 7000, delay: Math.random() * 0.25 }); },
     roar:     () => { tone({ type: 'sawtooth', f0: 110, f1: 45, dur: 1.2, vol: 0.14 }); tone({ type: 'square', f0: 165, f1: 70, dur: 1.0, vol: 0.05 }); noise({ dur: 1.0, vol: 0.18, freq: 900 }); },
+    comm:     () => { noise({ dur: 0.08, vol: 0.06, freq: 3000 }); tone({ type: 'square', f0: 1800, f1: 1500, dur: 0.06, vol: 0.03, delay: 0.05 }); tone({ type: 'square', f0: 2200, f1: 2000, dur: 0.05, vol: 0.025, delay: 0.12 }); },
     elevator: () => { tone({ type: 'sawtooth', f0: 80, f1: 320, dur: 1.2, vol: 0.06 }); arp([523, 659, 784], 'triangle', 0.15, 0.25, 0.09); },
   };
 

@@ -93,18 +93,23 @@
   </div>
 
   <div id="briefing" class="overlay hidden">
-    <div class="panel brief">
-      <div class="brief-head">
-        <span id="brief-icon" class="big">🛡️</span>
-        <div>
-          <small id="brief-deck">Deck 1</small>
-          <h2 id="brief-title">Schilde</h2>
-        </div>
+    <div class="panel comms">
+      <div class="comms-head">
+        <span class="comms-dot"></span>
+        <span class="comms-title">📡 Eingehende Übertragung</span>
+        <span id="comms-deck" class="comms-deck"></span>
       </div>
-      <p id="brief-goal" class="brief-goal"></p>
-      <ul id="brief-tips"></ul>
-      <p id="brief-reward" class="brief-reward"></p>
-      <button id="brief-go" class="primary">Los geht's</button>
+      <div class="comms-body">
+        <div class="comms-avatar">
+          <div class="comms-face">👨‍🔧</div>
+          <small>Chefingenieur<br>Funke</small>
+        </div>
+        <div id="comms-msgs" class="comms-msgs"></div>
+      </div>
+      <div class="comms-foot">
+        <span id="brief-reward" class="brief-reward"></span>
+        <button id="brief-go" class="primary">Weiter ▸▸</button>
+      </div>
     </div>
   </div>
 

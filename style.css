@@ -254,30 +254,100 @@ button {
   cursor: pointer;
 }
 
-/* Einsatzbesprechung */
+/* Einsatzbesprechung als Funkübertragung */
 #briefing { z-index: 11; }
 #pause { z-index: 13; }
-.brief { text-align: left; max-width: 480px; }
-.brief-head { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
-.brief-head .big { font-size: 42px; }
-.brief-head small { color: var(--dim); text-transform: uppercase; letter-spacing: .12em; font-size: 11px; }
-.brief-head h2 { margin: 0; color: var(--accent); font-size: 24px; }
-.brief .brief-goal { font-weight: 700; font-size: 16px; margin-bottom: 10px; }
-.brief ul { margin: 0 0 12px; padding-left: 0; list-style: none; }
-.brief li { margin: 4px 0; line-height: 1.4; font-size: 14px; }
-.brief .brief-reward { color: #8ef58e; font-size: 14px; }
-.brief .primary { display: block; margin: 4px auto 0; }
+.comms {
+  max-width: 620px;
+  width: 100%;
+  text-align: left;
+  padding: 0;
+  overflow: hidden;
+  border-color: #2b5a6e;
+  box-shadow: 0 0 30px rgba(79, 209, 255, .15);
+}
+.comms-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: #0a1b26;
+  border-bottom: 1px solid #1f4152;
+  font-size: 13px;
+}
+.comms-dot {
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  background: #ff5a6e;
+  box-shadow: 0 0 8px #ff5a6e;
+  animation: blink 1s infinite;
+}
+.comms-title { color: var(--accent); font-weight: 700; letter-spacing: .04em; }
+.comms-deck { margin-left: auto; color: var(--dim); white-space: nowrap; }
+.comms-body { display: flex; gap: 12px; padding: 12px 14px; }
+.comms-avatar { flex: 0 0 76px; text-align: center; color: var(--dim); font-size: 11px; line-height: 1.25; }
+.comms-face {
+  position: relative;
+  width: 64px; height: 64px;
+  margin: 0 auto 4px;
+  border: 2px solid #2b5a6e;
+  border-radius: 10px;
+  background: radial-gradient(circle, #123444, #07141c);
+  font-family: var(--emoji);
+  font-size: 40px;
+  line-height: 62px;
+  overflow: hidden;
+  animation: comms-flicker 4s infinite;
+}
+/* Bildschirm-Rauschen über dem Gesicht */
+.comms-face::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(0deg, rgba(79, 209, 255, .08) 0 2px, transparent 2px 4px);
+  animation: comms-scan 3s linear infinite;
+}
+@keyframes comms-scan { to { background-position: 0 40px; } }
+@keyframes comms-flicker { 0%, 94%, 100% { opacity: 1; } 95% { opacity: .6; } 97% { opacity: .9; } }
+.comms-msgs {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  max-height: 260px;
+  min-height: 150px;
+  overflow-y: auto;
+}
+.comms-msg {
+  align-self: flex-start;
+  padding: 7px 11px;
+  border-radius: 4px 12px 12px 12px;
+  background: #102532;
+  border: 1px solid #1f4152;
+  font-size: 14px;
+  line-height: 1.4;
+  animation: comms-in .25s ease-out;
+}
+.comms-msg:last-child { border-color: #2f7390; }
+@keyframes comms-in { from { opacity: 0; transform: translateY(6px); } }
+.comms-foot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px 12px;
+}
+.comms .brief-reward { flex: 1; margin: 0; color: #8ef58e; font-size: 13px; }
+.comms .primary { flex: 0 0 auto; }
 @media (max-height: 460px) {
-  .panel { padding: 12px 18px; }
-  .brief-head { margin-bottom: 2px; }
-  .brief-head .big { font-size: 32px; }
-  .brief-head h2 { font-size: 20px; }
-  .brief { max-width: 600px; }
-  .brief .brief-goal { margin-bottom: 6px; font-size: 14px; }
-  .brief li { margin: 2px 0; font-size: 12.5px; line-height: 1.3; }
-  .brief ul { margin-bottom: 6px; }
-  .brief .brief-reward { margin-bottom: 8px; font-size: 12.5px; }
-  .brief .primary { padding: 8px 22px; font-size: 15px; }
+  .comms-head { padding: 5px 12px; font-size: 12px; }
+  .comms-body { padding: 8px 12px; gap: 10px; }
+  .comms-avatar { flex-basis: 58px; font-size: 10px; }
+  .comms-face { width: 50px; height: 50px; font-size: 30px; line-height: 48px; }
+  .comms-msgs { max-height: 175px; min-height: 120px; gap: 5px; }
+  .comms-msg { font-size: 12.5px; padding: 5px 9px; }
+  .comms-foot { padding: 4px 12px 8px; }
+  .comms .brief-reward { font-size: 12px; }
+  .comms .primary { padding: 7px 18px; font-size: 14px; }
 }
 
 /* ---------- Titelbildschirm ---------- */
