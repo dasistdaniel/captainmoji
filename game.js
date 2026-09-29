@@ -4,6 +4,7 @@
 // ---------- Konstanten & Konfiguration ----------
 const VIEW_W = 15, VIEW_H = 9;
 const FOV_RADIUS = 7;
+const MEMORY_LIGHT = 0.36; // Helligkeit bereits erkundeter, gerade nicht sichtbarer Felder
 const T = { WALL: 0, FLOOR: 1, DOOR: 2 };
 const DIRS = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
 
@@ -96,6 +97,7 @@ function loadDeck(cfg) {
     cfg, enemies: [], items: new Map(), props: new Map(), deco: new Map(), station: null,
     visitedRooms: new Set([0]),
     explored: new Uint8Array(map.w * map.h), visible: new Uint8Array(map.w * map.h),
+    fade: new Float32Array(map.w * map.h), // angezeigte Helligkeit je Feld, gleitet zum Zielwert
   });
 
   const { rooms } = G;
@@ -784,7 +786,7 @@ let tile = 40, dpr = 1;
 
 const COLORS = {
   corridor: '#161c2a', door: '#2a2233',
-  fog: 'rgba(0,0,0,0.6)', laser: '#4fd1ff', hit: 'rgba(255,255,255,0.55)',
+  laser: '#4fd1ff', hit: 'rgba(255,255,255,0.55)',
 };
 
 function resize() {
@@ -865,6 +867,7 @@ function frame(now) {
   const dt = lastFrame ? Math.min(0.05, (now - lastFrame) / 1000) : 0.016;
   lastFrame = now;
   let busy = glide(G.player, dt) || !!G.player.bump;
+  busy = stepFog(dt) || busy;
   for (const e of G.enemies) busy = glide(e, dt) || !!e.bump || busy;
   G.effects = G.effects.filter(f => f.until > now);
   busy = busy || G.effects.length > 0 || G.shake.until > now;
@@ -905,7 +908,7 @@ function render(now = performance.now()) {
     for (let x = x0 - 1; x <= x0 + VIEW_W + 1; x++) {
       if (!inBounds(x, y)) continue;
       const i = idx(x, y);
-      if (!G.explored[i]) continue;
+      if (G.fade[i] < 0.01) continue;
       const t = G.tiles[i];
       if (t === T.WALL) {
         if (isWallEdge(x, y)) drawEmoji(E.wall, mx(x), my(y), 0.92);
@@ -930,7 +933,6 @@ function render(now = performance.now()) {
         const pulse = G.station.repaired ? 1 : 0.85 + Math.sin(now / 300) * 0.05;
         drawEmoji(G.station.repaired ? '✨' : E.generator, mx(x), my(y), pulse);
       }
-      if (!G.visible[i]) { ctx.fillStyle = COLORS.fog; ctx.fillRect(px(x), py(y), tile + 0.5, tile + 0.5); }
     }
 
   // Gegner (nur auf sichtbaren Feldern)
@@ -971,6 +973,8 @@ function render(now = performance.now()) {
     ctx.lineTo(cx - fx * s - fy * s, cy - fy * s - fx * s);
     ctx.fill();
   }
+
+  drawFog(x0, y0, px, py);
 
   // Effekte
   for (const f of G.effects) {
@@ -1032,6 +1036,44 @@ function render(now = performance.now()) {
 
   // Items und Station schweben/pulsieren – dafür langsam weiterzeichnen
   scheduleIdle();
+}
+
+// Nebel: Helligkeit je Feld gleitet weich zum Ziel – nichts ploppt mehr auf.
+// Sichtbare Felder werden mit der Entfernung zum Captain dunkler (Lichtkegel).
+const smoothstep = (a, b, v) => { const t = clamp((v - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+
+function stepFog(dt) {
+  const p = G.player, k = 1 - Math.exp(-dt * 9);
+  let changing = false;
+  for (let y = 0; y < G.h; y++)
+    for (let x = 0; x < G.w; x++) {
+      const i = y * G.w + x;
+      let target = 0;
+      if (G.visible[i]) target = 1 - 0.55 * smoothstep(1.5, FOV_RADIUS + 2, Math.hypot(x - p.rx, y - p.ry));
+      else if (G.explored[i]) target = MEMORY_LIGHT;
+      const diff = target - G.fade[i];
+      if (Math.abs(diff) < 0.004) G.fade[i] = target;
+      else { G.fade[i] += diff * k; changing = true; }
+    }
+  return changing;
+}
+
+// Ein Pixel pro Feld, weich hochskaliert – ergibt fließende Übergänge statt Kästchen
+const fogCanvas = document.createElement('canvas');
+const fogCtx = fogCanvas.getContext('2d');
+function drawFog(x0, y0, px, py) {
+  const cols = VIEW_W + 5, rows = VIEW_H + 5, sx = x0 - 2, sy = y0 - 2;
+  if (fogCanvas.width !== cols || fogCanvas.height !== rows) { fogCanvas.width = cols; fogCanvas.height = rows; }
+  const img = fogCtx.createImageData(cols, rows);
+  for (let r = 0; r < rows; r++)
+    for (let c = 0; c < cols; c++) {
+      const x = sx + c, y = sy + r;
+      const light = inBounds(x, y) ? G.fade[idx(x, y)] : 0;
+      img.data[(r * cols + c) * 4 + 3] = Math.round((1 - light) * 255);
+    }
+  fogCtx.putImageData(img, 0, 0);
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(fogCanvas, px(sx), py(sy), cols * tile, rows * tile);
 }
 
 // Lüftungsgitter auf dem Boden
