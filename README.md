@@ -21,6 +21,8 @@ Das Raumschiff ist schwer beschädigt. Als Captain kämpfst du dich Deck für De
 
 ## Stand
 
+Alle vier Decks sind spielbar – vom Schildgenerator bis zum Antrieb.
+
 **Deck 1 – 🛡️ Schilde**
 - Zufällig generierte Räume mit Raumtypen (Brücke, Lager, Kontrollraum, Quartier, Technik, Messe)
 - 📦 Kisten zerschlagen oder zerschießen – manchmal steckt 🔋 oder 🩹 drin
@@ -41,6 +43,13 @@ Das Raumschiff ist schwer beschädigt. Als Captain kämpfst du dich Deck für De
 - 🖥️ Terminals orten Keycard und Werkzeug, befallene Räume voller 🕸️
 - Belohnung: Blaster +1 Schaden
 
+**Deck 4 – ⚙️ Maschinenraum (Finale)**
+- 🔥 Feuer breitet sich aus, brennt ab und flammt durch Kurzschlüsse neu auf – im Feuer −1 ❤️ pro Zug
+- 🧯 Feuerlöscher: gegen das Feuer laufen löscht ein 3×3-Feld
+- ☢️ Reaktorräume sind verstrahlt – die Dosis steigt, alle 4 Punkte −1 ❤️
+- 🐙 Boss: Das Tentakelmonster bewacht den Antrieb, peitscht 2 Felder weit und schickt 🦑 Tentakel los
+- Antrieb reparieren = Schiff gerettet, Spiel gewonnen
+
 **🔬 Forschungslabor (Meta-Progression)**
 - 💾 Datenkerne: Drohnen lassen sie fallen, Kisten enthalten sie, jede reparierte Station gibt +3
 - Kerne bleiben nach dem Tod erhalten (im Browser gespeichert) und werden im Labor ausgegeben
@@ -52,4 +61,4 @@ Zwischen den Decks geht es mit dem 🛗 Aufzug weiter; ❤️, 🔋, 🩹 und Bo
 Nebel des Krieges, Permadeath, Animationen und Sounds.
 Musik und Schiffsgeräusche werden live im Browser erzeugt (`audio.js`), ganz ohne Audiodateien.
 
-Zum Testen: `index.html?deck=2` bzw. `?deck=3` startet direkt auf dem jeweiligen Deck.
+Zum Testen: `index.html?deck=2`, `?deck=3` oder `?deck=4` startet direkt auf dem jeweiligen Deck.

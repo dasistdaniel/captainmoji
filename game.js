@@ -14,6 +14,7 @@ const E = {
   terminal: '🖥️', crate: '📦', elevator: '🛗',
   lifesupport: '🫁', o2: '🫧', leak: '💨', spore: '🦠', core: '💾',
   weapons: '🎯', alien: '👾', keycard: '💳', lock: '🔒', vest: '🦺',
+  drive: '⚙️', boss: '🐙', tentacle: '🦑', fire: '🔥', extinguisher: '🧯', rad: '☢️',
 };
 
 const PLAYER_BASE = { maxHp: 10, ammo: 3, meleeDmg: 2, blasterDmg: 3, blasterRange: 6 };
@@ -22,6 +23,11 @@ const PLAYER_BASE = { maxHp: 10, ammo: 3, meleeDmg: 2, blasterDmg: 3, blasterRan
 const SHIELD_RECHARGE = 15; // Züge, bis der Schild nach einem abgefangenen Treffer wieder bereit ist
 const REGEN_EVERY = 12;     // alle n Züge +1 ❤️
 const ELEVATOR_MIN_ROOMS = 2; // so viele Räume liegt der Aufzug mindestens von der Station entfernt
+
+// Deck 4: Strahlung und Feuer
+const RAD_LIMIT = 4;        // so viel Dosis kostet 1 ❤️
+const RAD_DECAY_EVERY = 3;  // außerhalb der Strahlung sinkt die Dosis alle n Züge um 1
+const EXTINGUISHER_CHARGES = 3;
 
 // Sauerstoff (Decks mit `oxygen`)
 const O2_MAX = 100;
@@ -32,6 +38,9 @@ const ENEMY_TYPES = {
   // Sporen bewegen sich nicht, greifen nur Nachbarfelder an und vermehren sich
   // Aliens schlafen nie, sind zäh und treffen hart
   alien: { emoji: E.alien, name: 'Alien', hp: 4, dmg: 2, hit: 0.65, sight: 7, alarm: true, modes: { patrol: 0.55, guard: 0.45 } },
+  // Boss: bewacht den Antrieb, Tentakel reichen 2 Felder weit, schickt 🦑 los
+  boss: { emoji: E.boss, name: 'Tentakelmonster', hp: 18, dmg: 2, hit: 0.6, sight: 7, boss: true, reach: 2, noDrop: true },
+  tentacle: { emoji: E.tentacle, name: 'Tentakel', hp: 1, dmg: 1, hit: 0.6, sight: 8, noDrop: true },
   spore: { emoji: E.spore, name: 'Sporenkolonie', hp: 1, dmg: 1, hit: 0.6, sight: 1, static: true, spread: 0.022 },
 };
 
@@ -44,6 +53,8 @@ const PROPS = {
   sprout:   { emoji: '🌱',       name: 'Setzling',    scale: 0.62 },
   o2:       { emoji: E.o2,       name: 'O₂-Station',  scale: 0.75 },
   elevator: { emoji: E.elevator, name: 'Aufzug',      scale: 0.85 },
+  barrel:   { emoji: '🛢️',       name: 'Kühlmittelfass', scale: 0.72 },
+  cooler:   { emoji: '🧊',       name: 'Kühlaggregat', scale: 0.68 },
   rack:     { emoji: '🗄️',       name: 'Waffenschrank', scale: 0.75 },
 };
 
@@ -62,6 +73,11 @@ const ROOM_THEMES = {
   hangar:    { name: 'Sicherheitsposten',   icon: E.terminal, floor: ['#1e1c26', '#22202b'], props: { terminal: [1, 1], crate: [0, 1] } },
   waffen:    { name: 'Waffensysteme',       icon: E.weapons,  floor: ['#261a14', '#2b1e17'], props: {}, bolts: 0.1 },
   armory:    { name: 'Waffenkammer',        icon: E.lock,     floor: ['#2a1618', '#2f191b'], props: { rack: [2, 3] } },
+  leitstand: { name: 'Leitstand',           icon: E.terminal, floor: ['#1a1d2a', '#1e2130'], props: { terminal: [1, 1] } },
+  antrieb:   { name: 'Antrieb',             icon: E.drive,    floor: ['#2a1f12', '#2f2314'], props: {}, bolts: 0.14 },
+  reaktor:   { name: 'Reaktorraum',         icon: E.rad,      floor: ['#15220f', '#182612'], props: { barrel: [1, 3] }, radiation: true },
+  maschinen: { name: 'Maschinenhalle',      icon: '🔩',       floor: ['#1f1c18', '#23201b'], props: { crate: [1, 2], barrel: [0, 1] }, bolts: 0.15 },
+  kuehlung:  { name: 'Kühlsystem',          icon: '🧊',       floor: ['#14202c', '#172431'], props: { cooler: [2, 3] } },
   nest:      { name: 'Befallener Raum',     icon: '🕸️',       floor: ['#1c1424', '#201729'], props: { crate: [0, 1] }, webs: 0.12 },
 };
 
@@ -78,6 +94,10 @@ const STATIONS = {
   weapons: {
     emoji: E.weapons, name: 'Waffensysteme', done: 'Waffensysteme online!', bonus: 'blaster',
     bonusText: `${E.weapons} Bonus: Dein Blaster macht +1 Schaden.`,
+  },
+  drive: {
+    emoji: E.drive, name: 'Antrieb', done: 'Antrieb repariert!', bonus: 'drive',
+    bonusText: `${E.drive} Der Antrieb läuft – das Schiff ist gerettet!`,
   },
 };
 
@@ -151,6 +171,30 @@ const DECKS = [
       reward: '🎯 Waffensysteme: Dein Blaster macht +1 Schaden.',
     },
   },
+  {
+    id: 4, name: 'Maschinenraum', icon: E.drive,
+    w: 52, h: 30, maxRooms: 11,
+    startTheme: 'leitstand', stationTheme: 'antrieb',
+    themes: ['reaktor', 'reaktor', 'maschinen', 'maschinen', 'kuehlung', 'lager', 'technik'],
+    enemies: { drone: [2, 3], alien: [2, 3] },
+    modes: { sleep: 0.3, patrol: 0.35, guard: 0.35 },
+    items: { medkit: [2, 2], battery: [2, 3], extinguisher: [1, 2] },
+    crateLoot: { battery: 0.3, medkit: 0.2, core: 0.12 },
+    goalItem: 'wrench', station: 'drive', goalMinRooms: 3,
+    final: true,
+    boss: 'boss',
+    fire: { sources: [3, 4], spread: 0.05, burn: [16, 24], cap: 50, shortEvery: [20, 30] },
+    intro: 'Finale! 🔥 Feuer, ☢️ Strahlung und das 🐙 Tentakelmonster vor dem ⚙️ Antrieb.',
+    briefing: {
+      goal: 'Finde das 🔧 Antriebsteil, besiege das 🐙 Tentakelmonster und repariere den ⚙️ Antrieb.',
+      tips: [
+        '🔥 Feuer breitet sich aus und verbrennt dich (−1 ❤️). Mit 🧯 Feuerlöscher: gegen das Feuer laufen = löschen.',
+        '☢️ In Reaktorräumen sammelt sich Strahlung an – zu viel kostet ❤️. Nicht trödeln!',
+        '🐙 Das Tentakelmonster bewacht den Antrieb. Seine Tentakel reichen 2 Felder weit – halte Abstand und nutze den Blaster.',
+      ],
+      reward: '⚙️ Antrieb: Das Schiff ist gerettet!',
+    },
+  },
 ];
 
 const ITEMS = {
@@ -160,6 +204,7 @@ const ITEMS = {
   core:    { emoji: E.core,    name: 'Datenkern' },
   keycard: { emoji: E.keycard, name: 'Keycard' },
   vest:    { emoji: E.vest,    name: 'Schutzweste' },
+  extinguisher: { emoji: E.extinguisher, name: 'Feuerlöscher' },
 };
 
 // ---------- Meta-Progression: Datenkerne & Forschungslabor ----------
@@ -270,6 +315,7 @@ function loadDeck(cfg) {
   }
   Object.assign(G, map, {
     cfg, enemies: [], items: new Map(), props: new Map(), deco: new Map(), leaks: new Map(), station: null, droid: null,
+    fire: new Map(), ash: new Map(), rad: new Uint8Array(map.w * map.h), nextShort: 0, boss: null,
     visitedRooms: new Set([0]), sporeWarned: false,
     explored: new Uint8Array(map.w * map.h), visible: new Uint8Array(map.w * map.h),
     fade: new Float32Array(map.w * map.h), // angezeigte Helligkeit je Feld, gleitet zum Zielwert
@@ -283,6 +329,8 @@ function loadDeck(cfg) {
   p.hasTool = false;
   p.hasKeycard = false;
   p.o2 = O2_MAX;
+  p.rad = 0;
+  p.extinguisher = 0;
   p.bump = null;
 
   // Station in den am weitesten entfernten Raum – gemessen in Räumen, bei Gleichstand in Feldern
@@ -297,15 +345,25 @@ function loadDeck(cfg) {
   rooms.forEach((r, i) => { r.theme = i === 0 ? cfg.startTheme : i === far ? cfg.stationTheme : pick(cfg.themes); });
   // Aufzug zum nächsten Deck – in einem eigenen Raum, mindestens `elevatorMinRooms` von der Station
   // entfernt, damit man nach der Reparatur noch einmal durchs Deck muss. Erst nach der Reparatur nutzbar.
-  const fromStation = roomHops(far);
-  const liftRooms = rooms.map((r, i) => i).filter(i => i !== 0 && i !== far);
-  const maxFromStation = Math.max(...liftRooms.map(i => fromStation[i]));
-  const liftCandidates = liftRooms.filter(i => fromStation[i] >= Math.min(ELEVATOR_MIN_ROOMS, maxFromStation));
-  G.elevatorRoom = pick(liftCandidates.length ? liftCandidates : [far]);
-  for (const scatter of [false, true]) {
-    if (tryPlaceProp(G.elevatorRoom, 'elevator', scatter, 200)) break;
+  // Auf dem letzten Deck gibt es keinen Aufzug mehr.
+  G.elevatorRoom = -1;
+  G.elevator = null;
+  if (!cfg.final) {
+    const fromStation = roomHops(far);
+    const liftRooms = rooms.map((r, i) => i).filter(i => i !== 0 && i !== far);
+    const maxFromStation = Math.max(...liftRooms.map(i => fromStation[i]));
+    const liftCandidates = liftRooms.filter(i => fromStation[i] >= Math.min(ELEVATOR_MIN_ROOMS, maxFromStation));
+    G.elevatorRoom = pick(liftCandidates.length ? liftCandidates : [far]);
+    for (const scatter of [false, true]) {
+      if (tryPlaceProp(G.elevatorRoom, 'elevator', scatter, 200)) break;
+    }
+    G.elevator = [...G.props.values()].find(pr => pr.type === 'elevator');
   }
-  G.elevator = [...G.props.values()].find(pr => pr.type === 'elevator');
+  // Deck 4: mindestens ein Reaktorraum
+  if (cfg.fire && !rooms.some(r => r.theme === 'reaktor')) {
+    const opts = rooms.map((r, i) => i).filter(i => i !== 0 && i !== far);
+    rooms[pick(opts)].theme = 'reaktor';
+  }
   if (cfg.oxygen) {
     // eine O₂-Station immer im Startraum, damit man sie kennenlernt
     tryPlaceProp(0, 'o2', false, 80);
@@ -339,6 +397,7 @@ function loadDeck(cfg) {
 
   // lose Items und Gegner nie in der Waffenkammer
   const openRooms = rooms.map((r, i) => i).filter(i => i !== 0 && i !== G.armoryRoom);
+  if (cfg.fire) placeItem('extinguisher', 0); // ein Feuerlöscher immer im Startraum
   for (const [type, [a, b]] of Object.entries(cfg.items)) {
     const n = rand(a, b);
     for (let i = 0; i < n; i++) placeItem(type, pick(openRooms));
@@ -354,6 +413,30 @@ function loadDeck(cfg) {
       G.enemies.push(makeEnemy(type, pos.x, pos.y, mode, ri));
     }
   }
+  // Boss direkt neben der Station
+  if (cfg.boss) {
+    const spot = Object.values(DIRS).map(([dx, dy]) => ({ x: G.station.x + dx, y: G.station.y + dy }))
+      .find(q => passable(q.x, q.y) && !occupied(q.x, q.y)) || freeTileInRoom(far);
+    G.boss = makeEnemy(cfg.boss, spot.x, spot.y, 'boss', far);
+    G.boss.awake = false;
+    G.boss.turns = 0;
+    G.enemies.push(G.boss);
+  }
+  // Strahlung in Reaktorräumen, Feuerherde in zufälligen Räumen
+  rooms.forEach((r, i) => {
+    if (!ROOM_THEMES[r.theme].radiation) return;
+    for (let y = r.y; y < r.y + r.h; y++)
+      for (let x = r.x; x < r.x + r.w; x++) G.rad[idx(x, y)] = 1;
+  });
+  if (cfg.fire) {
+    const fireRooms = rooms.map((r, i) => i).filter(i => i !== 0 && i !== far);
+    const n = rand(...cfg.fire.sources);
+    for (let k = 0; k < n; k++) {
+      const pos = freeTileInRoom(pick(fireRooms));
+      if (pos) igniteArea(pos.x, pos.y);
+    }
+    G.nextShort = rand(...cfg.fire.shortEvery);
+  }
 
   Meta.data.bestDeck = Math.max(Meta.data.bestDeck, cfg.id);
   Meta.save();
@@ -367,7 +450,7 @@ function loadDeck(cfg) {
 
   const scan = Meta.level('scanner');
   if (scan >= 2) G.explored.fill(1);
-  else if (scan >= 1) { markRoomOnMap(G.station.room); markRoomOnMap(G.elevatorRoom); }
+  else if (scan >= 1) { markRoomOnMap(G.station.room); if (G.elevatorRoom >= 0) markRoomOnMap(G.elevatorRoom); }
 
   updateFov();
   addLog(`${cfg.icon} Deck ${cfg.id}: ${cfg.name}`);
@@ -423,6 +506,87 @@ function unlockArmory(x, y) {
   floatText(x, y, '🔓 offen', '#ffd84f', 1100);
   Sound.play('unlock');
   addLog(`🔓 Keycard akzeptiert – die Waffenkammer ist offen!`);
+  return true;
+}
+
+// ---------- Feuer ----------
+function canBurn(i) {
+  const x = i % G.w, y = (i / G.w) | 0;
+  return G.tiles[i] !== T.WALL && G.tiles[i] !== T.LOCKED && !G.props.has(i) && !G.ash.has(i) &&
+         !G.fire.has(i) && !isStation(x, y);
+}
+
+function ignite(i) {
+  if (!canBurn(i)) return false;
+  G.fire.set(i, rand(...G.cfg.fire.burn));
+  return true;
+}
+
+// Feuerherd: Mittelpunkt plus ein paar Nachbarfelder
+function igniteArea(x, y) {
+  ignite(idx(x, y));
+  for (const [dx, dy] of Object.values(DIRS)) if (Math.random() < 0.6 && inBounds(x + dx, y + dy)) ignite(idx(x + dx, y + dy));
+}
+
+function tickFire() {
+  const cf = G.cfg.fire;
+  if (!cf) return;
+  // Asche kühlt ab, danach kann dort wieder etwas brennen
+  for (const [i, t] of G.ash) { if (t <= 1) G.ash.delete(i); else G.ash.set(i, t - 1); }
+  const fresh = [];
+  for (const [i, t] of G.fire) {
+    if (t <= 1) { G.fire.delete(i); G.ash.set(i, 25); continue; }
+    G.fire.set(i, t - 1);
+    if (G.fire.size + fresh.length >= cf.cap) continue;
+    const x = i % G.w, y = (i / G.w) | 0;
+    for (const [dx, dy] of Object.values(DIRS))
+      if (Math.random() < cf.spread && inBounds(x + dx, y + dy)) fresh.push(idx(x + dx, y + dy));
+  }
+  fresh.forEach(ignite);
+  // Kurzschluss: ab und zu ein neuer Brandherd
+  if (--G.nextShort <= 0) {
+    G.nextShort = rand(...cf.shortEvery);
+    const opts = G.rooms.map((r, i) => i).filter(i => i !== 0 && i !== G.roomAt[idx(G.player.x, G.player.y)]);
+    const ri = pick(opts);
+    const pos = freeTileInRoom(ri);
+    if (pos) {
+      igniteArea(pos.x, pos.y);
+      Sound.play('short');
+      addLog(`⚡ Kurzschluss! Feuer im ${ROOM_THEMES[G.rooms[ri].theme].name} (${compass(G.player, pos)}).`);
+    }
+  }
+  // Gegner und Droide im Feuer nehmen Schaden (der Boss nicht)
+  for (const e of G.enemies.slice()) {
+    const t = ENEMY_TYPES[e.type];
+    if (t.boss || !G.fire.has(idx(e.x, e.y))) continue;
+    e.hp -= 1;
+    floatText(e.x, e.y, '-1', '#ff9a3d');
+    if (e.hp <= 0) {
+      G.enemies.splice(G.enemies.indexOf(e), 1);
+      sparks(e.x, e.y, '#ff8a3d', 12);
+      if (G.visible[idx(e.x, e.y)]) addLog(`🔥 ${t.emoji} ${t.name} verbrennt.`);
+    }
+  }
+  const d = G.droid;
+  if (d && d.hp > 0 && G.fire.has(idx(d.x, d.y))) attackDroid({ x: d.x, y: d.y - 1 }, { dmg: 1, hit: 1, emoji: E.fire });
+}
+
+// Mit dem Feuerlöscher gegen Feuer laufen: löscht ein 3×3-Feld
+function extinguish(x, y, dx, dy) {
+  const p = G.player;
+  bump(p, dx, dy, 0.2);
+  p.extinguisher--;
+  let n = 0;
+  for (let oy = -1; oy <= 1; oy++)
+    for (let ox = -1; ox <= 1; ox++) {
+      if (!inBounds(x + ox, y + oy)) continue;
+      const i = idx(x + ox, y + oy);
+      if (G.fire.delete(i)) { n++; G.ash.set(i, 25); }
+    }
+  sparks(x, y, '#e8f4ff', 22);
+  addEffect({ type: 'foam', x, y, ms: 500 });
+  Sound.play('extinguish');
+  addLog(`${E.extinguisher} ${n} ${n === 1 ? 'Feuer' : 'Feuerfelder'} gelöscht. ${p.extinguisher ? `Noch ${p.extinguisher} Ladungen.` : 'Der Löscher ist leer.'}`);
   return true;
 }
 
@@ -720,6 +884,7 @@ function playerMove(dir) {
   const prop = propAt(nx, ny);
   if (prop) return useProp(prop, dx, dy);
   if (isStation(nx, ny)) return useStation(dx, dy);
+  if (inBounds(nx, ny) && G.fire.has(idx(nx, ny)) && p.extinguisher > 0) return extinguish(nx, ny, dx, dy);
   const leak = inBounds(nx, ny) && G.leaks.get(idx(nx, ny));
   if (leak && leak.active) return sealLeak(leak, dx, dy);
   if (tileAt(nx, ny) === T.LOCKED) { bump(p, dx, dy, 0.15); return unlockArmory(nx, ny); }
@@ -873,6 +1038,11 @@ function pickup() {
     floatText(p.x, p.y, E.keycard, '#ffd84f');
     Sound.play('tool');
     addLog(`${E.keycard} Keycard gefunden! Damit öffnest du die ${E.lock} Waffenkammer.`);
+  } else if (it.type === 'extinguisher') {
+    p.extinguisher += EXTINGUISHER_CHARGES;
+    floatText(p.x, p.y, `+${EXTINGUISHER_CHARGES} ${E.extinguisher}`, '#8fd8ff');
+    Sound.play('pickup');
+    addLog(`${E.extinguisher} Feuerlöscher: +${EXTINGUISHER_CHARGES} Ladungen. Lauf gegen ein Feuer, um es zu löschen.`);
   } else if (it.type === 'vest') {
     p.maxHp += 2;
     p.hp += 2;
@@ -900,6 +1070,12 @@ function useStation(dx, dy) {
   const st = STATIONS[G.station.type];
   bump(p, dx, dy, 0.15);
   if (G.station.repaired) { Sound.play('bump'); return false; }
+  if (G.boss && G.boss.hp > 0) {
+    Sound.play('deny');
+    wakeBoss();
+    addLog(`${E.boss} Das Tentakelmonster blockiert den ${st.name}! Besiege es zuerst.`);
+    return false;
+  }
   if (!p.hasTool) {
     Sound.play('deny');
     addLog(`${st.emoji} ${st.name} ist defekt. Du brauchst ein ${E.wrench}.`);
@@ -988,6 +1164,21 @@ function damageEnemy(e, dmg, how) {
   addEffect({ type: 'hit', ent: e, ms: 160 });
   floatText(e.x, e.y, `-${dmg}`, '#ffd84f');
   sparks(e.x, e.y, t.static ? '#9be36b' : '#ffcf4f', 8);
+  if (t.boss) { e.hp = Math.max(0, e.hp); wakeBoss(); renderBossBar(); }
+  if (e.hp <= 0 && t.boss) {
+    G.enemies.splice(G.enemies.indexOf(e), 1);
+    for (let k = 0; k < 4; k++) setTimeout(() => sparks(e.x + (Math.random() - 0.5) * 2, e.y + (Math.random() - 0.5) * 2, pick(['#c77dff', '#ff8a3d', '#ffd84f']), 16), k * 150);
+    addEffect({ type: 'boom', x: e.x, y: e.y, ms: 900 });
+    shake(12, 700);
+    Sound.play('explode');
+    Sound.play('roar');
+    Sound.music('game', G.deckIndex);
+    addLog(`${E.boss} Das Tentakelmonster ist besiegt! Der Weg zum ${E.drive} Antrieb ist frei.`);
+    collectCores(5, e);
+    G.enemies = G.enemies.filter(m => m.type !== 'tentacle' || (sparks(m.x, m.y, '#c77dff', 8), false));
+    renderBossBar();
+    return;
+  }
   if (e.hp <= 0) {
     G.enemies.splice(G.enemies.indexOf(e), 1);
     if (t.static) {
@@ -1001,16 +1192,78 @@ function damageEnemy(e, dmg, how) {
       Sound.play('explode');
       addLog(`💥 ${t.emoji} ${t.name} zerstört!${surprised ? ' (Überraschung!)' : ''}`);
       const key = idx(e.x, e.y);
-      if (Math.random() < CORE_DROP && !G.items.has(key)) G.items.set(key, { type: 'core', x: e.x, y: e.y });
+      if (!t.noDrop && Math.random() < CORE_DROP && !G.items.has(key)) G.items.set(key, { type: 'core', x: e.x, y: e.y });
     }
   } else {
     Sound.play('hit');
     addLog(`${how}: ${t.emoji} −${dmg}`);
-    if (t.static) return;
+    if (t.static || t.boss) return;
     if (e.mode === 'sleep') e.mode = 'guard';
     e.alert = ALERT_TURNS;
     if (wasCalm) raiseAlarm([e]);
   }
+}
+
+// ---------- Boss: Tentakelmonster ----------
+function wakeBoss() {
+  const b = G.boss;
+  if (!b || b.awake || b.hp <= 0) return;
+  b.awake = true;
+  b.turns = 0;
+  shake(8, 500);
+  Sound.play('roar');
+  Sound.music('boss', G.deckIndex);
+  floatText(b.x, b.y, 'ROAAR!', '#c77dff', 1300);
+  addLog(`${E.boss} Das Tentakelmonster erwacht!`);
+  renderBossBar();
+}
+
+function bossAct(b, t, d) {
+  const p = G.player;
+  const inRoom = G.roomAt[idx(p.x, p.y)] === b.home;
+  if (!b.awake) {
+    if (inRoom || (G.visible[idx(b.x, b.y)] && d <= 5)) wakeBoss();
+    return;
+  }
+  b.turns++;
+  // regelmäßig einen Tentakel losschicken (höchstens 3 gleichzeitig)
+  if (b.turns % 6 === 0 && G.enemies.filter(e => e.type === 'tentacle').length < 3) {
+    const spots = freeSteps(b);
+    if (spots.length) {
+      const [x, y] = pick(spots);
+      const m = makeEnemy('tentacle', x, y, 'guard', -1);
+      m.rx = b.x; m.ry = b.y;
+      m.alert = ALERT_TURNS;
+      G.enemies.push(m);
+      addLog(`${E.tentacle} Das Monster schickt einen Tentakel los!`);
+    }
+  }
+  // Tentakel-Angriff auf bis zu 2 Felder
+  if (d <= t.reach && lineOfSight(b.x, b.y, p.x, p.y)) {
+    addEffect({ type: 'tentacle', x0: b.x, y0: b.y, x1: p.x, y1: p.y, ms: 260 });
+    enemyAttack(b, t);
+    return;
+  }
+  const dr = G.droid;
+  if (dr && dr.hp > 0 && manhattan(b, dr) <= t.reach && lineOfSight(b.x, b.y, dr.x, dr.y)) {
+    addEffect({ type: 'tentacle', x0: b.x, y0: b.y, x1: dr.x, y1: dr.y, ms: 260 });
+    attackDroid(b, t);
+    return;
+  }
+  // bleibt in seinem Raum, rückt aber auf den Captain vor
+  const dist = bfs(p.x, p.y, () => true), cur = dist[idx(b.x, b.y)];
+  const moves = Object.values(DIRS).map(([dx, dy]) => [b.x + dx, b.y + dy])
+    .filter(([x, y]) => passable(x, y) && !occupied(x, y) && G.roomAt[idx(x, y)] === b.home &&
+      dist[idx(x, y)] !== -1 && (cur === -1 || dist[idx(x, y)] < cur));
+  if (moves.length) [b.x, b.y] = pick(moves);
+}
+
+function renderBossBar() {
+  const bar = document.getElementById('bossbar');
+  const b = G && G.boss;
+  const show = !!(b && b.awake && b.hp > 0 && state !== 'title');
+  bar.hidden = !show;
+  if (show) document.getElementById('bossbar-fill').style.width = `${Math.max(0, b.hp / b.maxHp) * 100}%`;
 }
 
 // ---------- Reparatur-Droide ----------
@@ -1092,6 +1345,8 @@ function enemiesAct() {
     const t = ENEMY_TYPES[e.type];
     const d = manhattan(e, p);
 
+    if (t.boss) { bossAct(e, t, d); continue; }
+
     if (t.static) {
       if (d === 1) enemyAttack(e, t);
       else if (G.droid && droidAt(G.droid.x, G.droid.y) && manhattan(e, G.droid) === 1) attackDroid(e, t);
@@ -1152,7 +1407,7 @@ function spreadSpores() {
 
 function freeSteps(e) {
   return Object.values(DIRS).map(([dx, dy]) => [e.x + dx, e.y + dy])
-    .filter(([x, y]) => passable(x, y) && !occupied(x, y));
+    .filter(([x, y]) => passable(x, y) && !occupied(x, y) && !G.fire.has(idx(x, y)));
 }
 
 // Patrouille: von Raum zu Raum laufen
@@ -1244,6 +1499,25 @@ function tickPlayer() {
     floatText(p.x, p.y, '+1', '#6dff8a');
   }
 
+  // Feuer brennt
+  if (G.fire.has(idx(p.x, p.y))) {
+    hurtPlayer(1);
+    addLog(`${E.fire} Du verbrennst dich: −1 ❤️`);
+  }
+  // Strahlung sammelt sich an
+  if (G.cfg.fire) {
+    if (G.rad[idx(p.x, p.y)]) {
+      if (!p.rad && !p.radWarned) { p.radWarned = true; addLog(`${E.rad} Strahlung! Halte dich hier nicht lange auf.`); }
+      p.rad++;
+      Sound.play('geiger');
+      if (p.rad >= RAD_LIMIT) {
+        p.rad = 0;
+        hurtPlayer(1);
+        addLog(`${E.rad} Strahlenbelastung: −1 ❤️`);
+      }
+    } else if (p.rad > 0 && G.turn % RAD_DECAY_EVERY === 0) p.rad--;
+  }
+
   const ox = G.cfg.oxygen;
   if (!ox) return;
   const before = p.o2;
@@ -1270,6 +1544,7 @@ function act(action) {
   if (state === 'play' && used) {
     droidAct();
     enemiesAct();
+    tickFire();
     tickPlayer();
     updateFov();
     if (G.player.hp <= 0) {
@@ -1499,11 +1774,27 @@ function render(now = performance.now()) {
           }
           drawEmoji(PROPS[pr.type].emoji, mx(x), my(y), scale, alpha);
         }
+        if (G.rad[i]) {
+          // Strahlung: grünes Flimmern, ab und zu ein ☢️
+          ctx.fillStyle = `rgba(120,255,90,${0.07 + 0.04 * Math.sin(now / 400 + x * 0.7 + y)})`;
+          ctx.fillRect(px(x), py(y), tile + 0.5, tile + 0.5);
+          if ((x * 7 + y * 3) % 6 === 0) drawEmoji(E.rad, mx(x), my(y), 0.4, 0.3);
+        }
+        if (G.ash.has(i)) {
+          ctx.fillStyle = 'rgba(0,0,0,0.35)';
+          ctx.fillRect(px(x), py(y), tile + 0.5, tile + 0.5);
+        }
         const it = G.items.get(i);
         if (it) {
           // Items schweben leicht
           const bob = Math.sin(now / 350 + x + y) * tile * 0.04;
           drawEmoji(ITEMS[it.type].emoji, mx(x), my(y) + bob, 0.66);
+        }
+        if (G.fire.has(i)) {
+          ctx.fillStyle = `rgba(255,110,30,${0.22 + 0.08 * Math.sin(now / 120 + i)})`;
+          ctx.fillRect(px(x), py(y), tile + 0.5, tile + 0.5);
+          const fl = Math.sin(now / 90 + i * 1.7);
+          drawEmoji(E.fire, mx(x), my(y) - tile * 0.04 * fl, 0.72 + fl * 0.05);
         }
       }
       if (isStation(x, y)) {
@@ -1536,6 +1827,17 @@ function render(now = performance.now()) {
     const [bx, by] = bumpOffset(e, now);
     const ex = mx(e.rx + bx), ey = my(e.ry + by);
     const asleep = e.mode === 'sleep';
+    if (ENEMY_TYPES[e.type].boss) {
+      // Boss: größer, lila Glühen, atmet
+      const breathe = 1 + Math.sin(now / 500) * 0.05;
+      ctx.fillStyle = `rgba(199,125,255,${e.awake ? 0.22 : 0.1})`;
+      ctx.beginPath();
+      ctx.arc(ex, ey, tile * 0.55 * breathe, 0, Math.PI * 2);
+      ctx.fill();
+      drawEmoji(E.boss, ex, ey, 1.05 * breathe, e.awake ? 1 : 0.8);
+      if (!e.awake) drawEmoji('💤', ex + tile * 0.35, ey - tile * 0.35, 0.34, 0.8);
+      continue;
+    }
     if (ENEMY_TYPES[e.type].static) {
       // Sporen pulsieren statt zu schweben
       drawEmoji(ENEMY_TYPES[e.type].emoji, ex, ey, 0.7 + Math.sin(now / 400 + e.x + e.y) * 0.05);
@@ -1646,6 +1948,26 @@ function render(now = performance.now()) {
       ctx.arc(mx(p.rx), my(p.ry), tile * (0.45 + t * 0.5), 0, Math.PI * 2);
       ctx.stroke();
       ctx.shadowBlur = 0;
+      ctx.globalAlpha = 1;
+    } else if (f.type === 'tentacle') {
+      // Tentakel peitscht zum Ziel
+      ctx.globalAlpha = 1 - t;
+      ctx.strokeStyle = '#c77dff';
+      ctx.lineWidth = Math.max(3, tile * 0.14 * (1 - t * 0.5));
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      const ax = mx(f.x0), ay = my(f.y0), bx2 = mx(f.x1), by2 = my(f.y1);
+      ctx.moveTo(ax, ay);
+      ctx.quadraticCurveTo((ax + bx2) / 2 + (ay - by2) * 0.3, (ay + by2) / 2 + (bx2 - ax) * 0.3, bx2, by2);
+      ctx.stroke();
+      ctx.lineCap = 'butt';
+      ctx.globalAlpha = 1;
+    } else if (f.type === 'foam') {
+      ctx.globalAlpha = 0.7 * (1 - t);
+      ctx.fillStyle = '#e8f4ff';
+      ctx.beginPath();
+      ctx.arc(mx(f.x), my(f.y), tile * (0.6 + t * 1.0), 0, Math.PI * 2);
+      ctx.fill();
       ctx.globalAlpha = 1;
     } else if (f.type === 'boom') {
       drawEmoji('💥', mx(f.x), my(f.y), 0.6 + t * 0.7, 1 - t);
@@ -1762,6 +2084,14 @@ function renderHud() {
   card.hidden = !(G.armoryRoom >= 0 && G.tiles.includes(T.LOCKED));
   card.textContent = p.hasKeycard ? `${E.keycard} ✔` : `${E.keycard} –`;
   card.classList.toggle('got', !!p.hasKeycard);
+  const ext = document.getElementById('hud-ext'), rad = document.getElementById('hud-rad');
+  ext.hidden = rad.hidden = !G.cfg.fire;
+  if (G.cfg.fire) {
+    ext.textContent = `${E.extinguisher} ${p.extinguisher}`;
+    rad.textContent = `${E.rad} ${p.rad}/${RAD_LIMIT}`;
+    rad.classList.toggle('hot', p.rad >= RAD_LIMIT - 1);
+  }
+  renderBossBar();
   const droidHud = document.getElementById('hud-droid');
   droidHud.hidden = !G.droid;
   if (G.droid) {
@@ -1813,8 +2143,8 @@ const SCREENS = {
     text: () => `Du bist auf Deck ${G.cfg.id} (${G.cfg.name}) gefallen. ${coreSummary()} Investiere sie im 🔬 Labor.`,
   },
   won: {
-    emoji: '🏆', title: 'Alle Decks geschafft!', btn: 'Nochmal spielen',
-    text: () => `${DECKS.map(d => d.icon).join(' ')} repariert! ${coreSummary()} Die weiteren Decks sind noch im Bau.`,
+    emoji: '🚀', title: 'Das Schiff ist gerettet!', btn: 'Nochmal spielen',
+    text: () => `${DECKS.map(d => d.icon).join(' ')} – alle Systeme laufen wieder. Captain Moji hat es geschafft! ${coreSummary()}`,
   },
 };
 

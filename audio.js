@@ -120,6 +120,10 @@ const Sound = (() => {
     buy:      () => { arp([523, 659, 784, 1047], 'triangle', 0.06, 0.2, 0.1); noise({ dur: 0.2, vol: 0.05, freq: 6000 }); },
     unlock:   () => { tone({ type: 'square', f0: 300, f1: 200, dur: 0.05, vol: 0.08 }); arp([659, 880, 1319], 'triangle', 0.08, 0.2, 0.1); },
     screech:  () => { tone({ type: 'sawtooth', f0: 1300, f1: 380, dur: 0.45, vol: 0.07 }); tone({ type: 'square', f0: 1700, f1: 600, dur: 0.3, vol: 0.03, delay: 0.05 }); noise({ dur: 0.3, vol: 0.08, freq: 5000 }); },
+    extinguish: () => { noise({ dur: 0.6, vol: 0.25, freq: 6000 }); noise({ dur: 0.3, vol: 0.1, freq: 1500, delay: 0.1 }); },
+    short:    () => { noise({ dur: 0.15, vol: 0.2, freq: 8000 }); tone({ type: 'square', f0: 120, f1: 60, dur: 0.2, vol: 0.06 }); noise({ dur: 0.4, vol: 0.12, freq: 1200, delay: 0.1 }); },
+    geiger:   () => { for (let i = 0; i < 3; i++) noise({ dur: 0.012, vol: 0.12, freq: 7000, delay: Math.random() * 0.25 }); },
+    roar:     () => { tone({ type: 'sawtooth', f0: 110, f1: 45, dur: 1.2, vol: 0.14 }); tone({ type: 'square', f0: 165, f1: 70, dur: 1.0, vol: 0.05 }); noise({ dur: 1.0, vol: 0.18, freq: 900 }); },
     elevator: () => { tone({ type: 'sawtooth', f0: 80, f1: 320, dur: 1.2, vol: 0.06 }); arp([523, 659, 784], 'triangle', 0.15, 0.25, 0.09); },
   };
 
@@ -212,7 +216,22 @@ const Sound = (() => {
     },
   };
 
-  const TRACKS = { title: TITLE, game: GAME };
+  // Boss: treibender Puls in Moll, 132 BPM
+  const BOSS = {
+    stepDur: 60 / 132 / 4,
+    vol: 0.45,
+    chords: [[45, 48, 52], [45, 48, 52], [41, 45, 48], [44, 47, 50]],
+    play(step, t, bus) {
+      const chord = this.chords[Math.floor(step / 16) % 4], s = step % 16;
+      if (s === 0) pad(bus, chord.map(n => n + 12), t, this.stepDur * 16, 0.014, 900);
+      if (s % 2 === 0) voice(bus, { type: 'sawtooth', freq: midi(chord[0] - 12), t, dur: this.stepDur * 1.5, vol: 0.07, release: 0.06, cutoff: 500 });
+      if (s % 4 === 0) kick(bus, t, 0.28);
+      if (s % 4 === 2) hat(bus, t, 0.03);
+      if (s === 12 || s === 14) voice(bus, { type: 'square', freq: midi(chord[2] + 12), t, dur: this.stepDur, vol: 0.025, cutoff: 1800, send: 0.4 });
+    },
+  };
+
+  const TRACKS = { title: TITLE, game: GAME, boss: BOSS };
   let seq = null, wanted = null;
 
   function startTrack(name) {
@@ -296,7 +315,8 @@ const Sound = (() => {
       if (ac.state === 'running') {
         const pool = ['creak', 'creak', 'clank', 'hiss', 'beeps', 'vent'];
         if (ambDeck === 1) pool.push('bubble', 'bubble', 'hiss');
-        if (ambDeck >= 2) pool.push('growl', 'growl', 'skitter');
+        if (ambDeck === 2) pool.push('growl', 'growl', 'skitter');
+        if (ambDeck >= 3) pool.push('crackle', 'crackle', 'geiger', 'growl');
         AMB[pool[Math.floor(Math.random() * pool.length)]]();
       }
       scheduleEvent();
@@ -333,6 +353,25 @@ const Sound = (() => {
   }
 
   const AMB = {
+    // Deck 4: knisterndes Feuer und Geigerzähler
+    crackle: () => {
+      const n = 6 + Math.floor(Math.random() * 8);
+      for (let i = 0; i < n; i++) {
+        const t = ac.currentTime + i * (0.03 + Math.random() * 0.09);
+        const s2 = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+        s2.buffer = whiteNoise();
+        f.type = 'bandpass'; f.frequency.value = 1500 + Math.random() * 2500; f.Q.value = 3;
+        g.gain.setValueAtTime(0.03, t);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.03);
+        s2.connect(f).connect(g).connect(ambBus);
+        s2.start(t); s2.stop(t + 0.04);
+      }
+    },
+    geiger: () => {
+      const n = 4 + Math.floor(Math.random() * 8);
+      for (let i = 0; i < n; i++)
+        ambTone({ type: 'square', f0: 3000, dur: 0.01, vol: 0.01, delay: Math.random() * 0.8, cutoff: 8000 });
+    },
     // Deck 3: Aliens irgendwo in den Schächten
     growl: () => {
       const f = 60 + Math.random() * 25;
@@ -383,7 +422,7 @@ const Sound = (() => {
       startTrack(name);
     }
     ambDeck = wanted.deck || 0;
-    if (name === 'game') startAmbience(); else stopAmbience();
+    if (name === 'game' || name === 'boss') startAmbience(); else stopAmbience();
   }
 
   // Im Hintergrund-Tab pausiert der Ton

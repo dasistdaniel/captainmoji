@@ -433,6 +433,28 @@ button {
 #title-lab span { margin-left: 6px; color: #c9a7ff; }
 #hud-cores { color: #c9a7ff; }
 #hud-droid { color: var(--accent); }
+#hud-rad.hot { color: #9dff6b; font-weight: 700; animation: blink .8s infinite; }
+#bossbar {
+  position: absolute;
+  top: 6px; left: 50%;
+  transform: translateX(-50%);
+  width: min(70%, 420px);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  border: 1px solid rgba(199, 125, 255, .6);
+  border-radius: 8px;
+  background: rgba(10, 5, 20, .75);
+  font-size: 13px;
+  line-height: 1.2;
+  color: #e3c8ff;
+  pointer-events: none;
+}
+#bossbar[hidden] { display: none; }
+#bossbar span { white-space: nowrap; font-weight: 700; }
+#bossbar b { flex: 1; height: 10px; border-radius: 5px; background: #2a1638; overflow: hidden; }
+#bossbar i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, #8f3dff, #ff5ac8); transition: width .3s; }
 #hud-droid.down { color: var(--dim); }
 
 /* ---------- Forschungslabor ---------- */
