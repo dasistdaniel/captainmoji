@@ -314,8 +314,8 @@ button {
   display: flex;
   flex-direction: column;
   gap: 7px;
-  max-height: 260px;
-  min-height: 150px;
+  /* feste Höhe: die Karte darf beim Eintippen nicht wachsen */
+  height: 260px;
   overflow-y: auto;
   overflow-x: hidden;
   /* scrollbar ausblenden – Scrollen per Rad/Wischen geht weiterhin */
@@ -341,17 +341,17 @@ button {
   padding: 8px 14px 12px;
 }
 .comms .brief-reward { flex: 1; margin: 0; color: #8ef58e; font-size: 13px; }
-.comms .primary { flex: 0 0 auto; }
+.comms .primary { flex: 0 0 auto; min-width: 140px; }
 @media (max-height: 460px) {
   .comms-head { padding: 5px 12px; font-size: 12px; }
   .comms-body { padding: 8px 12px; gap: 10px; }
   .comms-avatar { flex-basis: 58px; font-size: 10px; }
   .comms-face { width: 50px; height: 50px; font-size: 30px; line-height: 48px; }
-  .comms-msgs { max-height: 175px; min-height: 120px; gap: 5px; }
+  .comms-msgs { height: 175px; gap: 5px; }
   .comms-msg { font-size: 12.5px; padding: 5px 9px; }
   .comms-foot { padding: 4px 12px 8px; }
   .comms .brief-reward { font-size: 12px; }
-  .comms .primary { padding: 7px 18px; font-size: 14px; }
+  .comms .primary { padding: 7px 18px; font-size: 14px; min-width: 124px; }
 }
 
 /* ---------- Titelbildschirm ---------- */
