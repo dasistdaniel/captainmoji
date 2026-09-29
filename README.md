@@ -37,5 +37,6 @@ Das Raumschiff ist schwer beschädigt. Als Captain kämpfst du dich Deck für De
 
 Zwischen den Decks geht es mit dem 🛗 Aufzug weiter; ❤️, 🔋, 🩹 und Boni bleiben erhalten.
 Nebel des Krieges, Permadeath, Animationen und Sounds.
+Musik und Schiffsgeräusche werden live im Browser erzeugt (`audio.js`), ganz ohne Audiodateien.
 
 Zum Testen: `index.html?deck=2` startet direkt auf Deck 2.

@@ -511,95 +511,7 @@ function addLog(msg) {
   renderLog();
 }
 
-// ---------- Sound (per WebAudio erzeugt, keine Dateien) ----------
-const Sound = (() => {
-  let ac = null, noiseBuf = null, muted = false;
-  try { muted = localStorage.getItem('captainMoji.muted') === '1'; } catch (e) { /* egal */ }
-
-  function audio() {
-    if (!ac) {
-      const AC = window.AudioContext || window.webkitAudioContext;
-      if (AC) ac = new AC();
-    }
-    if (ac && ac.state === 'suspended') ac.resume();
-    return ac;
-  }
-
-  function tone({ type = 'square', f0, f1 = f0, dur = 0.1, vol = 0.1, delay = 0 }) {
-    const a = audio(); if (!a || muted) return;
-    const t = a.currentTime + delay;
-    const o = a.createOscillator(), g = a.createGain();
-    o.type = type;
-    o.frequency.setValueAtTime(f0, t);
-    o.frequency.exponentialRampToValueAtTime(Math.max(1, f1), t + dur);
-    g.gain.setValueAtTime(vol, t);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g).connect(a.destination);
-    o.start(t); o.stop(t + dur + 0.02);
-  }
-
-  function noise({ dur = 0.15, vol = 0.2, freq = 2000, delay = 0 }) {
-    const a = audio(); if (!a || muted) return;
-    if (!noiseBuf) {
-      noiseBuf = a.createBuffer(1, a.sampleRate * 0.5, a.sampleRate);
-      const d = noiseBuf.getChannelData(0);
-      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-    }
-    const t = a.currentTime + delay;
-    const s = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain();
-    s.buffer = noiseBuf;
-    f.type = 'lowpass';
-    f.frequency.setValueAtTime(freq, t);
-    f.frequency.exponentialRampToValueAtTime(100, t + dur);
-    g.gain.setValueAtTime(vol, t);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    s.connect(f).connect(g).connect(a.destination);
-    s.start(t); s.stop(t + dur + 0.02);
-  }
-
-  const arp = (notes, type, gap, dur, vol) =>
-    notes.forEach((f, i) => tone({ type, f0: f, f1: f * 0.98, dur, vol, delay: i * gap }));
-
-  const SFX = {
-    step:    () => noise({ dur: 0.05, vol: 0.06, freq: 700 }),
-    bump:    () => noise({ dur: 0.07, vol: 0.12, freq: 400 }),
-    shoot:   () => tone({ type: 'square', f0: 1400, f1: 160, dur: 0.18, vol: 0.07 }),
-    hit:     () => { noise({ dur: 0.12, vol: 0.22, freq: 3000 }); tone({ type: 'square', f0: 240, f1: 110, dur: 0.08, vol: 0.05 }); },
-    explode: () => { noise({ dur: 0.5, vol: 0.35, freq: 1600 }); tone({ type: 'sawtooth', f0: 130, f1: 35, dur: 0.45, vol: 0.09 }); },
-    hurt:    () => { tone({ type: 'sawtooth', f0: 190, f1: 55, dur: 0.24, vol: 0.13 }); noise({ dur: 0.1, vol: 0.14, freq: 1200 }); },
-    miss:    () => tone({ type: 'sine', f0: 520, f1: 300, dur: 0.09, vol: 0.05 }),
-    pickup:  () => arp([660, 990], 'sine', 0.07, 0.12, 0.11),
-    tool:    () => arp([523, 784, 1047], 'triangle', 0.08, 0.18, 0.12),
-    heal:    () => arp([523, 659, 784], 'triangle', 0.07, 0.16, 0.11),
-    empty:   () => tone({ type: 'square', f0: 130, f1: 100, dur: 0.07, vol: 0.06 }),
-    deny:    () => arp([220, 165], 'square', 0.09, 0.12, 0.05),
-    win:     () => arp([523, 659, 784, 1047, 1319], 'triangle', 0.11, 0.3, 0.12),
-    death:   () => arp([392, 330, 262, 196], 'sawtooth', 0.18, 0.32, 0.09),
-    crate:   () => { noise({ dur: 0.25, vol: 0.3, freq: 900 }); tone({ type: 'triangle', f0: 160, f1: 70, dur: 0.2, vol: 0.1 }); },
-    beep:    () => arp([880, 1175, 880], 'square', 0.06, 0.06, 0.04),
-    alarm:   () => arp([740, 988, 740, 988], 'square', 0.1, 0.09, 0.05),
-    wake:    () => tone({ type: 'sine', f0: 200, f1: 700, dur: 0.25, vol: 0.07 }),
-    seal:     () => { noise({ dur: 0.35, vol: 0.18, freq: 5000 }); arp([392, 523], 'triangle', 0.12, 0.12, 0.09); },
-    o2:       () => arp([392, 494, 587, 784], 'sine', 0.06, 0.18, 0.1),
-    shield:   () => { tone({ type: 'sine', f0: 1600, f1: 700, dur: 0.3, vol: 0.12 }); noise({ dur: 0.1, vol: 0.1, freq: 4000 }); },
-    shieldup: () => tone({ type: 'sine', f0: 500, f1: 1400, dur: 0.25, vol: 0.07 }),
-    warn:     () => arp([880, 660, 880, 660], 'square', 0.12, 0.1, 0.05),
-    squish:   () => { noise({ dur: 0.18, vol: 0.2, freq: 600 }); tone({ type: 'sine', f0: 300, f1: 90, dur: 0.15, vol: 0.08 }); },
-    elevator: () => { tone({ type: 'sawtooth', f0: 80, f1: 320, dur: 1.2, vol: 0.06 }); arp([523, 659, 784], 'triangle', 0.15, 0.25, 0.09); },
-  };
-
-  return {
-    play(name) { try { SFX[name] && SFX[name](); } catch (e) { /* Audio ist optional */ } },
-    unlock() { try { audio(); } catch (e) { /* egal */ } },
-    get muted() { return muted; },
-    toggle() {
-      muted = !muted;
-      try { localStorage.setItem('captainMoji.muted', muted ? '1' : '0'); } catch (e) { /* egal */ }
-      if (!muted) this.play('pickup');
-      renderSoundBtn();
-    },
-  };
-})();
+// Sound, Musik und Schiffsgeräusche: siehe audio.js
 
 // ---------- Spieleraktionen ----------
 function playerMove(dir) {
@@ -792,7 +704,7 @@ function useStation(dx, dy) {
     markRoomOnMap(G.elevatorRoom);
   } else {
     state = 'won';
-    setTimeout(() => showScreen('won'), 1400);
+    setTimeout(() => { showScreen('won'); Sound.music('title'); }, 1400);
   }
   return false;
 }
@@ -1066,6 +978,7 @@ function act(action) {
       addEffect({ type: 'boom', x: G.player.x, y: G.player.y, ms: 700 });
       shake(10, 400);
       Sound.play('death');
+      Sound.music(null);
       addLog('☠️ Der Captain ist gefallen.');
       setTimeout(() => showScreen('dead'), 900);
     }
@@ -1087,6 +1000,7 @@ function travelToNextDeck() {
     G.effects = [];
     G.log = [];
     loadDeck(next);
+    Sound.music('game', G.deckIndex);
     renderHud();
     resize();
   }, 700);
@@ -1663,6 +1577,7 @@ function quitRun() {
 
 function showTitle() {
   state = 'title';
+  Sound.music('title');
   document.getElementById('screen').classList.add('hidden');
   Title.show();
 }
@@ -1674,6 +1589,7 @@ function startRun() {
   document.getElementById('screen').classList.add('hidden');
   document.getElementById('screen-btn').blur();
   newRun(START_DECK);
+  Sound.music('game', G.deckIndex);
   showBriefing();
   renderHud();
   resize();
@@ -1756,6 +1672,10 @@ window.addEventListener('resize', resize);
 window.addEventListener('orientationchange', () => setTimeout(resize, 150));
 
 // ---------- Start ----------
+// Browser erlauben Ton erst nach der ersten Nutzeraktion
+window.addEventListener('pointerdown', () => Sound.unlock());
+window.addEventListener('keydown', () => Sound.unlock());
+
 renderSoundBtn();
 showTitle();
 resize();
