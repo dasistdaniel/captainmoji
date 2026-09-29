@@ -118,6 +118,8 @@ const Sound = (() => {
     squish:   () => { noise({ dur: 0.18, vol: 0.2, freq: 600 }); tone({ type: 'sine', f0: 300, f1: 90, dur: 0.15, vol: 0.08 }); },
     core:     () => arp([988, 1319, 1760, 2349], 'sine', 0.05, 0.16, 0.07),
     buy:      () => { arp([523, 659, 784, 1047], 'triangle', 0.06, 0.2, 0.1); noise({ dur: 0.2, vol: 0.05, freq: 6000 }); },
+    unlock:   () => { tone({ type: 'square', f0: 300, f1: 200, dur: 0.05, vol: 0.08 }); arp([659, 880, 1319], 'triangle', 0.08, 0.2, 0.1); },
+    screech:  () => { tone({ type: 'sawtooth', f0: 1300, f1: 380, dur: 0.45, vol: 0.07 }); tone({ type: 'square', f0: 1700, f1: 600, dur: 0.3, vol: 0.03, delay: 0.05 }); noise({ dur: 0.3, vol: 0.08, freq: 5000 }); },
     elevator: () => { tone({ type: 'sawtooth', f0: 80, f1: 320, dur: 1.2, vol: 0.06 }); arp([523, 659, 784], 'triangle', 0.15, 0.25, 0.09); },
   };
 
@@ -293,7 +295,8 @@ const Sound = (() => {
       if (!hum) return;
       if (ac.state === 'running') {
         const pool = ['creak', 'creak', 'clank', 'hiss', 'beeps', 'vent'];
-        if (ambDeck >= 1) pool.push('bubble', 'bubble', 'hiss');
+        if (ambDeck === 1) pool.push('bubble', 'bubble', 'hiss');
+        if (ambDeck >= 2) pool.push('growl', 'growl', 'skitter');
         AMB[pool[Math.floor(Math.random() * pool.length)]]();
       }
       scheduleEvent();
@@ -330,6 +333,16 @@ const Sound = (() => {
   }
 
   const AMB = {
+    // Deck 3: Aliens irgendwo in den Schächten
+    growl: () => {
+      const f = 60 + Math.random() * 25;
+      ambTone({ type: 'sawtooth', f0: f, f1: f * 0.75, dur: 1.4 + Math.random(), vol: 0.03, cutoff: 380 });
+    },
+    skitter: () => {
+      const n = 5 + Math.floor(Math.random() * 6);
+      for (let i = 0; i < n; i++)
+        ambTone({ type: 'square', f0: 2200 + Math.random() * 900, dur: 0.02, vol: 0.006, delay: i * (0.04 + Math.random() * 0.05), cutoff: 5000 });
+    },
     // Metall ächzt unter Spannung
     creak: () => {
       const base = 55 + Math.random() * 40;

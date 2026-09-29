@@ -5,7 +5,7 @@
 const VIEW_W = 15, VIEW_H = 9;
 const FOV_RADIUS = 7;
 const MEMORY_LIGHT = 0.36; // Helligkeit bereits erkundeter, gerade nicht sichtbarer Felder
-const T = { WALL: 0, FLOOR: 1, DOOR: 2 };
+const T = { WALL: 0, FLOOR: 1, DOOR: 2, LOCKED: 3 }; // LOCKED = verschlossene Tür (🔒), braucht 💳
 const DIRS = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
 
 const E = {
@@ -13,6 +13,7 @@ const E = {
   wrench: '🔧', battery: '🔋', medkit: '🩹', generator: '🛡️',
   terminal: '🖥️', crate: '📦', elevator: '🛗',
   lifesupport: '🫁', o2: '🫧', leak: '💨', spore: '🦠', core: '💾',
+  weapons: '🎯', alien: '👾', keycard: '💳', lock: '🔒', vest: '🦺',
 };
 
 const PLAYER_BASE = { maxHp: 10, ammo: 3, meleeDmg: 2, blasterDmg: 3, blasterRange: 6 };
@@ -29,6 +30,8 @@ const O2_SUFFOCATE_EVERY = 2; // ohne O₂: alle n Züge −1 ❤️
 const ENEMY_TYPES = {
   drone: { emoji: E.drone, name: 'Sicherheitsdrohne', hp: 3, dmg: 1, hit: 0.75, sight: 8, alarm: true },
   // Sporen bewegen sich nicht, greifen nur Nachbarfelder an und vermehren sich
+  // Aliens schlafen nie, sind zäh und treffen hart
+  alien: { emoji: E.alien, name: 'Alien', hp: 4, dmg: 2, hit: 0.65, sight: 7, alarm: true, modes: { patrol: 0.55, guard: 0.45 } },
   spore: { emoji: E.spore, name: 'Sporenkolonie', hp: 1, dmg: 1, hit: 0.6, sight: 1, static: true, spread: 0.022 },
 };
 
@@ -41,6 +44,7 @@ const PROPS = {
   sprout:   { emoji: '🌱',       name: 'Setzling',    scale: 0.62 },
   o2:       { emoji: E.o2,       name: 'O₂-Station',  scale: 0.75 },
   elevator: { emoji: E.elevator, name: 'Aufzug',      scale: 0.85 },
+  rack:     { emoji: '🗄️',       name: 'Waffenschrank', scale: 0.75 },
 };
 
 // Raumtypen: eigener Boden, eigene Hindernisse. `scatter` = frei im Raum statt an der Wand.
@@ -55,6 +59,10 @@ const ROOM_THEMES = {
   schleuse:  { name: 'Aufzugsvorraum',      icon: E.elevator, floor: ['#1c2130', '#202536'], props: { terminal: [1, 1] } },
   hydro:     { name: 'Hydrokultur',         icon: '🌱',       floor: ['#15241a', '#18291d'], props: { sprout: [3, 6] }, scatter: true },
   lifesupp:  { name: 'Lebenserhaltung',     icon: E.lifesupport, floor: ['#122429', '#15292f'], props: {}, bolts: 0.1 },
+  hangar:    { name: 'Sicherheitsposten',   icon: E.terminal, floor: ['#1e1c26', '#22202b'], props: { terminal: [1, 1], crate: [0, 1] } },
+  waffen:    { name: 'Waffensysteme',       icon: E.weapons,  floor: ['#261a14', '#2b1e17'], props: {}, bolts: 0.1 },
+  armory:    { name: 'Waffenkammer',        icon: E.lock,     floor: ['#2a1618', '#2f191b'], props: { rack: [2, 3] } },
+  nest:      { name: 'Befallener Raum',     icon: '🕸️',       floor: ['#1c1424', '#201729'], props: { crate: [0, 1] }, webs: 0.12 },
 };
 
 // Reparierbare Schiffssysteme – jedes gibt einen dauerhaften Bonus für den Run
@@ -66,6 +74,10 @@ const STATIONS = {
   lifesupport: {
     emoji: E.lifesupport, name: 'Lebenserhaltung', done: 'Lebenserhaltung läuft wieder!', bonus: 'regen',
     bonusText: `${E.lifesupport} Bonus: Du regenerierst langsam ❤️.`,
+  },
+  weapons: {
+    emoji: E.weapons, name: 'Waffensysteme', done: 'Waffensysteme online!', bonus: 'blaster',
+    bonusText: `${E.weapons} Bonus: Dein Blaster macht +1 Schaden.`,
   },
 };
 
@@ -116,6 +128,29 @@ const DECKS = [
       reward: '🫁 Lebenserhaltung: Du regenerierst langsam ❤️.',
     },
   },
+  {
+    id: 3, name: 'Waffensysteme', icon: E.weapons,
+    w: 52, h: 30, maxRooms: 11,
+    startTheme: 'hangar', stationTheme: 'waffen',
+    themes: ['nest', 'nest', 'lager', 'kontroll', 'quartier', 'technik', 'messe'],
+    enemies: { drone: [3, 4], alien: [4, 5] },
+    modes: { sleep: 0.3, patrol: 0.35, guard: 0.35 },
+    items: { medkit: [1, 2], battery: [2, 3] },
+    crateLoot: { battery: 0.3, medkit: 0.2, core: 0.12 },
+    goalItem: 'wrench', station: 'weapons', goalMinRooms: 3,
+    // Das Zielitem liegt in der verschlossenen Waffenkammer – die Keycard liegt woanders
+    armory: { loot: ['vest', 'battery', 'battery', 'medkit', 'core'] },
+    intro: 'Aliens an Bord! 💳 Keycard finden, 🔒 Waffenkammer öffnen, 🔧 zur 🎯 bringen.',
+    briefing: {
+      goal: 'Hol das 🔧 aus der 🔒 Waffenkammer und repariere die 🎯 Waffensysteme.',
+      tips: [
+        '👾 Aliens schlafen nie, halten 4 Treffer aus und treffen hart (−2 ❤️). Blaster auf Abstand hilft.',
+        '🔒 Die Waffenkammer öffnet nur mit der 💳 Keycard – drinnen warten 🦺 Schutzweste, 🔋 und 🩹.',
+        '🖥️ Terminals orten die Keycard für dich.',
+      ],
+      reward: '🎯 Waffensysteme: Dein Blaster macht +1 Schaden.',
+    },
+  },
 ];
 
 const ITEMS = {
@@ -123,6 +158,8 @@ const ITEMS = {
   battery: { emoji: E.battery, name: 'Energiezelle' },
   medkit:  { emoji: E.medkit,  name: 'Medkit' },
   core:    { emoji: E.core,    name: 'Datenkern' },
+  keycard: { emoji: E.keycard, name: 'Keycard' },
+  vest:    { emoji: E.vest,    name: 'Schutzweste' },
 };
 
 // ---------- Meta-Progression: Datenkerne & Forschungslabor ----------
@@ -244,6 +281,7 @@ function loadDeck(cfg) {
   p.x = p.rx = start.cx;
   p.y = p.ry = start.cy;
   p.hasTool = false;
+  p.hasKeycard = false;
   p.o2 = O2_MAX;
   p.bump = null;
 
@@ -283,19 +321,36 @@ function loadDeck(cfg) {
   if (!others.length) others = rooms.map((r, i) => i).filter(i => i !== 0 && i !== far);
   const maxHops = Math.max(...others.map(i => hops[i]));
   const candidates = others.filter(i => hops[i] >= Math.min(cfg.goalMinRooms, maxHops));
-  placeItem(cfg.goalItem, pick(candidates));
 
+  // Deck 3: Zielitem in der verschlossenen Waffenkammer, Keycard in einem anderen Raum
+  G.armoryRoom = cfg.armory ? setupArmory(pick(candidates.length ? candidates : others), others) : -1;
+  // sehr selten passt kein Raum als Waffenkammer – dann die Karte neu würfeln
+  if (cfg.armory && G.armoryRoom < 0 && (G.rerolls = (G.rerolls || 0) + 1) < 20) return loadDeck(cfg);
+  G.rerolls = 0;
+  if (G.armoryRoom >= 0) {
+    placeItem(cfg.goalItem, G.armoryRoom);
+    for (const type of cfg.armory.loot) placeItem(type, G.armoryRoom);
+    const cardRooms = others.filter(i => i !== G.armoryRoom);
+    const far2 = cardRooms.filter(i => hops[i] >= 2);
+    placeItem('keycard', pick(far2.length ? far2 : cardRooms));
+  } else {
+    placeItem(cfg.goalItem, pick(candidates));
+  }
+
+  // lose Items und Gegner nie in der Waffenkammer
+  const openRooms = rooms.map((r, i) => i).filter(i => i !== 0 && i !== G.armoryRoom);
   for (const [type, [a, b]] of Object.entries(cfg.items)) {
     const n = rand(a, b);
-    for (let i = 0; i < n; i++) placeItem(type, rand(1, rooms.length - 1));
+    for (let i = 0; i < n; i++) placeItem(type, pick(openRooms));
   }
   for (const [type, [a, b]] of Object.entries(cfg.enemies)) {
     const n = rand(a, b);
     for (let i = 0; i < n; i++) {
-      const ri = rand(1, rooms.length - 1);
+      const ri = pick(openRooms);
       const pos = freeTileInRoom(ri);
       if (!pos) continue;
-      const mode = ENEMY_TYPES[type].static ? 'static' : rollTable(cfg.modes) || 'guard';
+      const t = ENEMY_TYPES[type];
+      const mode = t.static ? 'static' : rollTable(t.modes || cfg.modes) || 'guard';
       G.enemies.push(makeEnemy(type, pos.x, pos.y, mode, ri));
     }
   }
@@ -319,6 +374,56 @@ function loadDeck(cfg) {
   addLog(cfg.intro);
   if (scan) addLog(`📡 Scanner: ${scan >= 2 ? 'kompletter Deckplan geladen.' : 'Station und Aufzug markiert.'}`);
   if (G.droid) addLog('🤖 Dein Reparatur-Droide ist einsatzbereit.');
+}
+
+// Waffenkammer: alle Eingänge des Raums werden zu verschlossenen Türen.
+// Nur wenn der Rest des Decks dann noch erreichbar bleibt – sonst den nächsten Raum probieren.
+function setupArmory(preferred, candidates) {
+  const order = [preferred, ...candidates.filter(i => i !== preferred).sort(() => Math.random() - 0.5)];
+  for (const ri of order) {
+    const r = G.rooms[ri], openings = [];
+    for (let y = r.y - 1; y <= r.y + r.h; y++)
+      for (let x = r.x - 1; x <= r.x + r.w; x++) {
+        const ring = x === r.x - 1 || x === r.x + r.w || y === r.y - 1 || y === r.y + r.h;
+        if (ring && inBounds(x, y) && G.tiles[idx(x, y)] !== T.WALL) openings.push(idx(x, y));
+      }
+    if (!openings.length) continue;
+    const before = openings.map(i => G.tiles[i]);
+    openings.forEach(i => { G.tiles[i] = T.LOCKED; });
+    const d = bfs(G.player.x, G.player.y, (x, y) => !isStation(x, y));
+    const st = idx(G.station.x, G.station.y);
+    let ok = true;
+    for (let i = 0; i < d.length && ok; i++)
+      if (passable(i % G.w, (i / G.w) | 0) && d[i] === -1 && i !== st && !G.props.has(i) && G.roomAt[i] !== ri) ok = false;
+    // wieder öffnen: erst einrichten (Hindernisse brauchen die Erreichbarkeitsprüfung), dann verschließen
+    openings.forEach((i, k) => { G.tiles[i] = before[k]; });
+    if (ok) {
+      G.rooms[ri].theme = 'armory';
+      for (const [key] of [...G.props]) if (G.roomAt[key] === ri) G.props.delete(key);
+      for (const [key] of [...G.deco]) if (G.roomAt[key] === ri) G.deco.delete(key);
+      placeProps(ri);
+      openings.forEach(i => { G.tiles[i] = T.LOCKED; });
+      return ri;
+    }
+  }
+  return -1;
+}
+
+function unlockArmory(x, y) {
+  const p = G.player;
+  if (!p.hasKeycard) {
+    Sound.play('deny');
+    addLog(`${E.lock} Verschlossen. Du brauchst eine ${E.keycard} Keycard.`);
+    return false;
+  }
+  let n = 0;
+  for (let i = 0; i < G.tiles.length; i++) if (G.tiles[i] === T.LOCKED) { G.tiles[i] = T.DOOR; n++; }
+  p.hasKeycard = false;
+  sparks(x, y, '#ffd84f', 14);
+  floatText(x, y, '🔓 offen', '#ffd84f', 1100);
+  Sound.play('unlock');
+  addLog(`🔓 Keycard akzeptiert – die Waffenkammer ist offen!`);
+  return true;
 }
 
 // Lecks sitzen in Raumwänden; man dichtet sie ab, indem man gegen sie läuft
@@ -483,13 +588,14 @@ function placeDeco() {
     const r = Math.random();
     if (r < 0.05) G.deco.set(i, 'vent');
     else if (theme && theme.bolts && r < 0.05 + theme.bolts) G.deco.set(i, 'bolt');
+    else if (theme && theme.webs && r < 0.05 + theme.webs) G.deco.set(i, 'web');
   }
 }
 
 function idx(x, y) { return y * G.w + x; }
 function inBounds(x, y) { return x >= 0 && y >= 0 && x < G.w && y < G.h; }
 function tileAt(x, y) { return inBounds(x, y) ? G.tiles[idx(x, y)] : T.WALL; }
-function passable(x, y) { return tileAt(x, y) !== T.WALL; }
+function passable(x, y) { const t = tileAt(x, y); return t !== T.WALL && t !== T.LOCKED; }
 function enemyAt(x, y) { return G.enemies.find(e => e.x === x && e.y === y); }
 function propAt(x, y) { return inBounds(x, y) ? G.props.get(idx(x, y)) : undefined; }
 function isStation(x, y) { return G.station && G.station.x === x && G.station.y === y; }
@@ -543,7 +649,7 @@ function lineOfSight(x0, y0, x1, y1) {
   const sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
   let err = dx + dy, x = x0, y = y0;
   while (!(x === x1 && y === y1)) {
-    if (!(x === x0 && y === y0) && tileAt(x, y) === T.WALL) return false;
+    if (!(x === x0 && y === y0) && !passable(x, y)) return false;
     const e2 = 2 * err;
     if (e2 >= dy) { err += dy; x += sx; }
     if (e2 <= dx) { err += dx; y += sy; }
@@ -616,6 +722,7 @@ function playerMove(dir) {
   if (isStation(nx, ny)) return useStation(dx, dy);
   const leak = inBounds(nx, ny) && G.leaks.get(idx(nx, ny));
   if (leak && leak.active) return sealLeak(leak, dx, dy);
+  if (tileAt(nx, ny) === T.LOCKED) { bump(p, dx, dy, 0.15); return unlockArmory(nx, ny); }
   if (!passable(nx, ny)) { bump(p, dx, dy, 0.12); Sound.play('bump'); return false; }
 
   p.x = nx; p.y = ny;
@@ -726,8 +833,11 @@ function useTerminal(prop) {
   } else if (p.hasTool) {
     addLog(`${E.terminal} ${st.name}: im ${compass(prop, G.station)}, ${distWord(prop, G.station)}.`);
   } else {
+    const card = [...G.items.values()].find(i => i.type === 'keycard');
     const tool = [...G.items.values()].find(i => i.type === G.cfg.goalItem);
-    if (tool) addLog(`${E.terminal} Werkzeug-Signal ${E.wrench}: im ${compass(prop, tool)}, ${distWord(prop, tool)}.`);
+    if (card) addLog(`${E.terminal} Keycard-Signal ${E.keycard}: im ${compass(prop, card)}, ${distWord(prop, card)}.`);
+    if (tool) addLog(`${E.terminal} Werkzeug-Signal ${E.wrench}: im ${compass(prop, tool)}, ${distWord(prop, tool)}${
+      G.armoryRoom >= 0 && G.roomAt[idx(tool.x, tool.y)] === G.armoryRoom && G.tiles.includes(T.LOCKED) ? ` – in der ${E.lock} Waffenkammer` : ''}.`);
   }
   if (G.cfg.oxygen && activeLeaks()) {
     addLog(`${E.terminal} Druckverlust: ${activeLeaks()} ${E.leak} Lecks aktiv.`);
@@ -758,6 +868,17 @@ function pickup() {
     addLog(`${E.medkit} Medkit eingesteckt.`);
   } else if (it.type === 'core') {
     collectCores(1, p);
+  } else if (it.type === 'keycard') {
+    p.hasKeycard = true;
+    floatText(p.x, p.y, E.keycard, '#ffd84f');
+    Sound.play('tool');
+    addLog(`${E.keycard} Keycard gefunden! Damit öffnest du die ${E.lock} Waffenkammer.`);
+  } else if (it.type === 'vest') {
+    p.maxHp += 2;
+    p.hp += 2;
+    floatText(p.x, p.y, '+2 max ❤️', '#6dff8a');
+    Sound.play('heal');
+    addLog(`${E.vest} Schutzweste angelegt: +2 max. ❤️ für diesen Run.`);
   } else if (it.type === 'wrench') {
     p.hasTool = true;
     floatText(p.x, p.y, E.wrench, '#ffd84f');
@@ -829,8 +950,8 @@ function playerShoot() {
   Sound.play('shoot');
   bump(p, -dx, -dy, 0.1);
   addEffect({ type: 'laser', x0: p.x, y0: p.y, x1: x, y1: y, ms: 170 });
-  if (hit) damageEnemy(hit, PLAYER_BASE.blasterDmg, 'Blaster');
-  else if (prop && prop.type === 'crate') damageProp(prop, PLAYER_BASE.blasterDmg);
+  if (hit) damageEnemy(hit, blasterDamage(), 'Blaster');
+  else if (prop && prop.type === 'crate') damageProp(prop, blasterDamage());
   else {
     // Einschlag am Ende des Strahls
     const edge = prop ? 0 : 0.45;
@@ -838,6 +959,10 @@ function playerShoot() {
     addLog('Pew! Daneben.');
   }
   return true;
+}
+
+function blasterDamage() {
+  return PLAYER_BASE.blasterDmg + (G.player.bonuses.has('blaster') ? 1 : 0);
 }
 
 function playerUseItem() {
@@ -1058,9 +1183,13 @@ function raiseAlarm(spotters) {
       floatText(o.x, o.y, '❗', '#ff5a6e');
     }
   }
+  const aliens = [...alerted].filter(e => e.type === 'alien').length;
+  if (aliens) Sound.play('screech');
   if (alerted.size > 1) {
-    Sound.play('alarm');
-    addLog(`🚨 Alarm! ${alerted.size} Drohnen jagen dich.`);
+    if (!aliens) Sound.play('alarm');
+    addLog(aliens === alerted.size ? `👾 Kreischen! ${alerted.size} Aliens jagen dich.` : `🚨 Alarm! ${alerted.size} Gegner jagen dich.`);
+  } else if (aliens) {
+    addLog(`${E.alien} Ein Alien hat dich entdeckt!`);
   } else {
     Sound.play('wake');
     addLog(`${ENEMY_TYPES[spotters[0].type].emoji} hat dich entdeckt!`);
@@ -1352,10 +1481,12 @@ function render(now = performance.now()) {
         if (isWallEdge(x, y)) drawEmoji(E.wall, mx(x), my(y), 0.92);
       } else {
         const ri = G.roomAt[i];
-        ctx.fillStyle = t === T.DOOR ? COLORS.door : ri >= 0 ? ROOM_THEMES[G.rooms[ri].theme].floor[(x + y) & 1] : COLORS.corridor;
+        ctx.fillStyle = t === T.DOOR || t === T.LOCKED ? COLORS.door : ri >= 0 ? ROOM_THEMES[G.rooms[ri].theme].floor[(x + y) & 1] : COLORS.corridor;
         ctx.fillRect(px(x), py(y), tile + 0.5, tile + 0.5);
         if (t === T.DOOR) drawEmoji(E.door, mx(x), my(y), 0.75);
+        if (t === T.LOCKED) drawEmoji(E.lock, mx(x), my(y), 0.72);
         const deco = G.deco.get(i);
+        if (deco === 'web') drawEmoji('🕸️', mx(x), my(y), 0.7, 0.35);
         if (deco === 'vent') drawVent(px(x), py(y));
         else if (deco === 'bolt') drawEmoji('🔩', px(x) + tile * 0.3, py(y) + tile * 0.7, 0.32, 0.45);
         const pr = G.props.get(i);
@@ -1627,6 +1758,10 @@ function renderHud() {
   tool.textContent = p.hasTool ? `${E.wrench} ✔` : `${E.wrench} –`;
   tool.classList.toggle('got', p.hasTool);
   document.getElementById('hud-cores').textContent = `${E.core} ${G.runCores}`;
+  const card = document.getElementById('hud-card');
+  card.hidden = !(G.armoryRoom >= 0 && G.tiles.includes(T.LOCKED));
+  card.textContent = p.hasKeycard ? `${E.keycard} ✔` : `${E.keycard} –`;
+  card.classList.toggle('got', !!p.hasKeycard);
   const droidHud = document.getElementById('hud-droid');
   droidHud.hidden = !G.droid;
   if (G.droid) {

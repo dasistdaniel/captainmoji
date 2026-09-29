@@ -94,6 +94,7 @@ html, body {
   cursor: pointer;
 }
 #hud-tool.got { color: #ffd84f; font-weight: 700; }
+#hud-card.got { color: #ffd84f; font-weight: 700; }
 #hud [hidden] { display: none; }
 #hud-shield { color: var(--dim); }
 #hud-shield.ready { color: var(--accent); font-weight: 700; }

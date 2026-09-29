@@ -35,6 +35,12 @@ Das Raumschiff ist schwer beschädigt. Als Captain kämpfst du dich Deck für De
 - 🦠 Sporen vermehren sich, je länger man trödelt
 - Belohnung: langsame ❤️-Regeneration
 
+**Deck 3 – 🎯 Waffensysteme**
+- 👾 Aliens: schlafen nie, halten 4 Treffer aus, treffen hart (−2 ❤️) und alarmieren kreischend ihre Artgenossen
+- 🔒 Die Waffenkammer öffnet nur mit der 💳 Keycard – drinnen: 🔧, 🦺 Schutzweste (+2 max. ❤️), 🔋, 🩹, 💾
+- 🖥️ Terminals orten Keycard und Werkzeug, befallene Räume voller 🕸️
+- Belohnung: Blaster +1 Schaden
+
 **🔬 Forschungslabor (Meta-Progression)**
 - 💾 Datenkerne: Drohnen lassen sie fallen, Kisten enthalten sie, jede reparierte Station gibt +3
 - Kerne bleiben nach dem Tod erhalten (im Browser gespeichert) und werden im Labor ausgegeben
@@ -46,4 +52,4 @@ Zwischen den Decks geht es mit dem 🛗 Aufzug weiter; ❤️, 🔋, 🩹 und Bo
 Nebel des Krieges, Permadeath, Animationen und Sounds.
 Musik und Schiffsgeräusche werden live im Browser erzeugt (`audio.js`), ganz ohne Audiodateien.
 
-Zum Testen: `index.html?deck=2` startet direkt auf Deck 2.
+Zum Testen: `index.html?deck=2` bzw. `?deck=3` startet direkt auf dem jeweiligen Deck.
