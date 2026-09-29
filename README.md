@@ -35,6 +35,11 @@ Das Raumschiff ist schwer beschädigt. Als Captain kämpfst du dich Deck für De
 - 🦠 Sporen vermehren sich, je länger man trödelt
 - Belohnung: langsame ❤️-Regeneration
 
+**🔬 Forschungslabor (Meta-Progression)**
+- 💾 Datenkerne: Drohnen lassen sie fallen, Kisten enthalten sie, jede reparierte Station gibt +3
+- Kerne bleiben nach dem Tod erhalten (im Browser gespeichert) und werden im Labor ausgegeben
+- Upgrades: ❤️ Verstärkter Anzug, 🩹 Notfallpaket, 🔋 Größere Energiezellen, 📡 Scanner (🤖 Reparatur-Droide folgt)
+
 Zwischen den Decks geht es mit dem 🛗 Aufzug weiter; ❤️, 🔋, 🩹 und Boni bleiben erhalten.
 Nebel des Krieges, Permadeath, Animationen und Sounds.
 Musik und Schiffsgeräusche werden live im Browser erzeugt (`audio.js`), ganz ohne Audiodateien.

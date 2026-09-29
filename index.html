@@ -31,6 +31,7 @@
         <span id="hud-shield" hidden>🛡️ ✔</span>
         <span id="hud-o2" hidden>🫧 <b class="bar"><i id="hud-o2-fill"></i></b> <span id="hud-o2-val">100</span></span>
         <span id="hud-leaks" hidden>💨 0</span>
+        <span id="hud-cores">💾 0</span>
         <button id="hud-sound" class="hud-btn" aria-label="Ton an/aus">🔊</button>
         <button id="hud-pause" class="hud-btn" aria-label="Pause">⏸️</button>
       </div>
@@ -64,7 +65,10 @@
         <span data-deck="3" title="Deck 3: Waffensysteme">🎯</span><i>›</i>
         <span data-deck="4" title="Deck 4: Maschinenraum">⚙️</span>
       </div>
-      <button id="title-start">▶ Mission starten</button>
+      <div class="t-buttons">
+        <button id="title-start">▶ Mission starten</button>
+        <button id="title-lab">🔬 Labor <span id="title-cores">💾 0</span></button>
+      </div>
       <div class="t-hint">Enter zum Starten · Pfeile/WASD · Leertaste schießt · M Ton</div>
     </div>
     <button id="title-sound" aria-label="Ton an/aus">🔊</button>
@@ -77,6 +81,7 @@
       <p id="screen-text"></p>
       <div class="btn-row">
         <button id="screen-btn" class="primary">Neuer Run</button>
+        <button id="screen-lab" class="ghost">🔬 Labor</button>
         <button id="screen-menu" class="ghost">Titelbild</button>
       </div>
     </div>
@@ -106,6 +111,27 @@
       <div class="btn-row">
         <button id="pause-resume" class="primary">Weiterspielen</button>
         <button id="pause-quit" class="ghost">Run abbrechen</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="lab" class="hidden">
+    <div class="panel lab-panel">
+      <div class="lab-head">
+        <h1>🔬 Forschungslabor</h1>
+        <div class="lab-cores">💾 <b id="lab-cores">0</b></div>
+      </div>
+      <p class="lab-sub">Datenkerne bleiben nach jedem Run erhalten. Investiere sie in Upgrades für den nächsten Einsatz.</p>
+      <div id="lab-grid"></div>
+      <div class="lab-foot">
+        <div class="lab-meta">
+          <span id="lab-stats"></span>
+          <button id="lab-reset" class="lab-reset">Fortschritt zurücksetzen</button>
+        </div>
+        <div class="btn-row">
+          <button id="lab-start" class="primary">▶ Mission starten</button>
+          <button id="lab-back" class="ghost">Zurück</button>
+        </div>
       </div>
     </div>
   </div>

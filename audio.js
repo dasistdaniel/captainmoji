@@ -116,6 +116,8 @@ const Sound = (() => {
     shieldup: () => tone({ type: 'sine', f0: 500, f1: 1400, dur: 0.25, vol: 0.07 }),
     warn:     () => arp([880, 660, 880, 660], 'square', 0.12, 0.1, 0.05),
     squish:   () => { noise({ dur: 0.18, vol: 0.2, freq: 600 }); tone({ type: 'sine', f0: 300, f1: 90, dur: 0.15, vol: 0.08 }); },
+    core:     () => arp([988, 1319, 1760, 2349], 'sine', 0.05, 0.16, 0.07),
+    buy:      () => { arp([523, 659, 784, 1047], 'triangle', 0.06, 0.2, 0.1); noise({ dur: 0.2, vol: 0.05, freq: 6000 }); },
     elevator: () => { tone({ type: 'sawtooth', f0: 80, f1: 320, dur: 1.2, vol: 0.06 }); arp([523, 659, 784], 'triangle', 0.15, 0.25, 0.09); },
   };
 

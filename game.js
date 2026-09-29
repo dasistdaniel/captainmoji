@@ -12,7 +12,7 @@ const E = {
   captain: '🧑‍🚀', drone: '🤖', wall: '🟫', door: '🚪',
   wrench: '🔧', battery: '🔋', medkit: '🩹', generator: '🛡️',
   terminal: '🖥️', crate: '📦', elevator: '🛗',
-  lifesupport: '🫁', o2: '🫧', leak: '💨', spore: '🦠',
+  lifesupport: '🫁', o2: '🫧', leak: '💨', spore: '🦠', core: '💾',
 };
 
 const PLAYER_BASE = { maxHp: 10, ammo: 3, meleeDmg: 2, blasterDmg: 3, blasterRange: 6 };
@@ -80,7 +80,7 @@ const DECKS = [
     // Verhalten der Drohnen: schlafend 💤, patrouillierend, bewachend
     modes: { sleep: 0.35, patrol: 0.3, guard: 0.35 },
     items: { medkit: [1, 2], battery: [2, 3] },
-    crateLoot: { battery: 0.3, medkit: 0.15 },
+    crateLoot: { battery: 0.3, medkit: 0.15, core: 0.12 },
     goalItem: 'wrench', station: 'generator', goalMinRooms: 3,
     intro: 'Finde das 🔧 und bring es zum 🛡️ Schildgenerator.',
     briefing: {
@@ -102,7 +102,7 @@ const DECKS = [
     enemies: { drone: [3, 4], spore: [3, 4] },
     modes: { sleep: 0.3, patrol: 0.35, guard: 0.35 },
     items: { medkit: [1, 2], battery: [2, 3] },
-    crateLoot: { battery: 0.3, medkit: 0.2 },
+    crateLoot: { battery: 0.3, medkit: 0.2, core: 0.12 },
     goalItem: 'wrench', station: 'lifesupport', goalMinRooms: 3,
     oxygen: { drain: 0.35, perLeak: 0.15, stations: [3, 4], leaks: [4, 6], sporeCap: 30 },
     intro: 'O₂ wird knapp! 💨 Lecks abdichten, an 🫧 tanken, 🔧 zur 🫁 bringen.',
@@ -122,7 +122,60 @@ const ITEMS = {
   wrench:  { emoji: E.wrench,  name: 'Werkzeug' },
   battery: { emoji: E.battery, name: 'Energiezelle' },
   medkit:  { emoji: E.medkit,  name: 'Medkit' },
+  core:    { emoji: E.core,    name: 'Datenkern' },
 };
+
+// ---------- Meta-Progression: Datenkerne & Forschungslabor ----------
+const CORE_DROP = 0.35;    // Chance, dass eine Drohne einen 💾 fallen lässt
+const CORES_PER_STATION = 3;
+
+// Upgrades bewusst klein halten, damit das Spiel nicht zu leicht wird
+const UPGRADES = [
+  { id: 'hp',      icon: '❤️', name: 'Verstärkter Anzug',     costs: [4, 6, 8, 10, 12], desc: () => '+1 max. ❤️ pro Stufe' },
+  { id: 'medkit',  icon: '🩹', name: 'Notfallpaket',          costs: [6, 12],           desc: () => 'Start mit einem 🩹 Medkit pro Stufe' },
+  { id: 'ammo',    icon: '🔋', name: 'Größere Energiezellen', costs: [5, 8, 12],        desc: () => '+2 🔋 Startmunition pro Stufe' },
+  { id: 'scanner', icon: '📡', name: 'Scanner',               costs: [8, 16],
+    desc: lvl => lvl < 1 ? 'Markiert beim Betreten eines Decks Station und Aufzug' : 'Zeigt beim Betreten eines Decks den ganzen Plan' },
+  { id: 'droid',   icon: '🤖', name: 'Reparatur-Droide',      costs: [30], soon: true,  desc: () => 'Ein Begleiter, der mitkämpft' },
+];
+
+const Meta = {
+  KEY: 'captainMoji.save',
+  data: { cores: 0, totalCores: 0, upgrades: {}, runs: 0, bestDeck: 0, wins: 0 },
+  load() {
+    try {
+      const d = JSON.parse(localStorage.getItem(this.KEY));
+      if (d) Object.assign(this.data, d, { upgrades: Object.assign({}, d.upgrades) });
+    } catch (e) { /* ohne Speicher geht es auch */ }
+  },
+  save() {
+    try { localStorage.setItem(this.KEY, JSON.stringify(this.data)); } catch (e) { /* egal */ }
+  },
+  level(id) { return this.data.upgrades[id] || 0; },
+  // Kerne werden sofort gesichert – auch wenn der Tab geschlossen wird
+  addCores(n) {
+    this.data.cores += n;
+    this.data.totalCores += n;
+    this.save();
+  },
+  nextCost(up) { return up.costs[this.level(up.id)]; },
+  canBuy(up) {
+    const cost = this.nextCost(up);
+    return !up.soon && cost !== undefined && this.data.cores >= cost;
+  },
+  buy(up) {
+    if (!this.canBuy(up)) return false;
+    this.data.cores -= this.nextCost(up);
+    this.data.upgrades[up.id] = this.level(up.id) + 1;
+    this.save();
+    return true;
+  },
+  reset() {
+    this.data = { cores: 0, totalCores: 0, upgrades: {}, runs: 0, bestDeck: 0, wins: 0 };
+    this.save();
+  },
+};
+Meta.load();
 
 // ---------- Hilfsfunktionen ----------
 const rand = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
@@ -145,8 +198,9 @@ function newRun(deckIndex = 0) {
   G = {
     deckIndex,
     turn: 0,
-    player: { x: 0, y: 0, hp: PLAYER_BASE.maxHp, maxHp: PLAYER_BASE.maxHp,
-              ammo: PLAYER_BASE.ammo, medkits: 0, hasTool: false, face: [1, 0],
+    runCores: 0,
+    player: { x: 0, y: 0, hp: PLAYER_BASE.maxHp + Meta.level('hp'), maxHp: PLAYER_BASE.maxHp + Meta.level('hp'),
+              ammo: PLAYER_BASE.ammo + 2 * Meta.level('ammo'), medkits: Meta.level('medkit'), hasTool: false, face: [1, 0],
               bonuses: new Set(), shieldReady: false, shieldTimer: 0, o2: O2_MAX },
     log: [],
     effects: [],
@@ -242,9 +296,16 @@ function loadDeck(cfg) {
     }
   }
 
+  Meta.data.bestDeck = Math.max(Meta.data.bestDeck, cfg.id);
+  Meta.save();
+  const scan = Meta.level('scanner');
+  if (scan >= 2) G.explored.fill(1);
+  else if (scan >= 1) { markRoomOnMap(G.station.room); markRoomOnMap(G.elevatorRoom); }
+
   updateFov();
   addLog(`${cfg.icon} Deck ${cfg.id}: ${cfg.name}`);
   addLog(cfg.intro);
+  if (scan) addLog(`📡 Scanner: ${scan >= 2 ? 'kompletter Deckplan geladen.' : 'Station und Aufzug markiert.'}`);
 }
 
 // Lecks sitzen in Raumwänden; man dichtet sie ab, indem man gegen sie läuft
@@ -671,12 +732,22 @@ function pickup() {
     floatText(p.x, p.y, `+1 ${E.medkit}`, '#8ef58e');
     Sound.play('pickup');
     addLog(`${E.medkit} Medkit eingesteckt.`);
+  } else if (it.type === 'core') {
+    collectCores(1, p);
   } else if (it.type === 'wrench') {
     p.hasTool = true;
     floatText(p.x, p.y, E.wrench, '#ffd84f');
     Sound.play('tool');
     addLog(`${E.wrench} Werkzeug gefunden! Ab zur Station: ${st.emoji} ${st.name}.`);
   }
+}
+
+function collectCores(n, at) {
+  G.runCores += n;
+  Meta.addCores(n);
+  floatText(at.x, at.y, `+${n} ${E.core}`, '#c9a7ff');
+  Sound.play('core');
+  addLog(`${E.core} ${n === 1 ? 'Datenkern' : `${n} Datenkerne`} gesichert! (${G.runCores} in diesem Run)`);
 }
 
 function useStation(dx, dy) {
@@ -692,6 +763,7 @@ function useStation(dx, dy) {
   p.hasTool = false;
   G.station.repaired = true;
   grantBonus(st.bonus);
+  collectCores(CORES_PER_STATION, G.station);
   sparks(G.station.x, G.station.y, '#4fd1ff', 24);
   floatText(G.station.x, G.station.y, st.done, '#4fd1ff', 1400);
   Sound.play('win');
@@ -704,6 +776,8 @@ function useStation(dx, dy) {
     markRoomOnMap(G.elevatorRoom);
   } else {
     state = 'won';
+    Meta.data.wins++;
+    Meta.save();
     setTimeout(() => { showScreen('won'); Sound.music('title'); }, 1400);
   }
   return false;
@@ -777,6 +851,8 @@ function damageEnemy(e, dmg, how) {
       shake(4, 180);
       Sound.play('explode');
       addLog(`💥 ${t.emoji} ${t.name} zerstört!${surprised ? ' (Überraschung!)' : ''}`);
+      const key = idx(e.x, e.y);
+      if (Math.random() < CORE_DROP && !G.items.has(key)) G.items.set(key, { type: 'core', x: e.x, y: e.y });
     }
   } else {
     Sound.play('hit');
@@ -1422,6 +1498,7 @@ function renderHud() {
   const tool = document.getElementById('hud-tool');
   tool.textContent = p.hasTool ? `${E.wrench} ✔` : `${E.wrench} –`;
   tool.classList.toggle('got', p.hasTool);
+  document.getElementById('hud-cores').textContent = `${E.core} ${G.runCores}`;
   document.getElementById('hud-deck').innerHTML = `${G.cfg.icon} <span class="long">Deck </span>${G.cfg.id}`;
 
   const shield = document.getElementById('hud-shield');
@@ -1458,14 +1535,17 @@ function renderLog() {
 }
 
 // ---------- Bildschirme ----------
+const coreSummary = () =>
+  `${E.core} ${G.runCores} Datenkerne gesichert – im Labor: ${Meta.data.cores}.`;
+
 const SCREENS = {
   dead: {
     emoji: '☠️', title: 'Captain gefallen', btn: 'Neuer Run',
-    text: () => `Du bist auf Deck ${G.cfg.id} (${G.cfg.name}) gefallen. Permadeath – der Run beginnt wieder bei Deck 1.`,
+    text: () => `Du bist auf Deck ${G.cfg.id} (${G.cfg.name}) gefallen. ${coreSummary()} Investiere sie im 🔬 Labor.`,
   },
   won: {
     emoji: '🏆', title: 'Alle Decks geschafft!', btn: 'Nochmal spielen',
-    text: () => `${DECKS.map(d => d.icon).join(' ')} repariert! Die weiteren Decks sind noch im Bau – bis dahin: neuer Run?`,
+    text: () => `${DECKS.map(d => d.icon).join(' ')} repariert! ${coreSummary()} Die weiteren Decks sind noch im Bau.`,
   },
 };
 
@@ -1579,13 +1659,69 @@ function showTitle() {
   state = 'title';
   Sound.music('title');
   document.getElementById('screen').classList.add('hidden');
+  document.getElementById('lab').classList.add('hidden');
+  document.getElementById('title-cores').textContent = `${E.core} ${Meta.data.cores}`;
   Title.show();
 }
 
+// ---------- Forschungslabor ----------
+function showLab() {
+  state = 'lab';
+  Title.hide();
+  document.getElementById('screen').classList.add('hidden');
+  document.getElementById('lab').classList.remove('hidden');
+  Sound.music('title');
+  renderLab();
+}
+
+function renderLab(boughtId) {
+  const d = Meta.data;
+  document.getElementById('lab-cores').textContent = d.cores;
+  document.getElementById('lab-stats').textContent =
+    `Runs: ${d.runs} · Bestes Deck: ${d.bestDeck || '–'} · Siege: ${d.wins} · Kerne gesammelt: ${d.totalCores}`;
+  document.getElementById('lab-grid').replaceChildren(...UPGRADES.map(up => {
+    const lvl = Meta.level(up.id), max = up.costs.length, cost = Meta.nextCost(up);
+    const card = document.createElement('div');
+    card.className = 'up-card';
+    card.classList.toggle('affordable', Meta.canBuy(up));
+    card.classList.toggle('soon', !!up.soon);
+    if (up.id === boughtId) card.classList.add('bought');
+
+    const pips = document.createElement('div');
+    pips.className = 'up-pips';
+    for (let i = 0; i < max; i++) {
+      const pip = document.createElement(i < lvl ? 'span' : 'i');
+      pip.textContent = '●';
+      pips.append(pip);
+    }
+
+    const btn = document.createElement('button');
+    btn.className = 'up-buy';
+    if (up.soon) { btn.textContent = 'Bald verfügbar'; btn.disabled = true; }
+    else if (cost === undefined) { btn.textContent = 'Maximal'; btn.disabled = true; }
+    else {
+      btn.textContent = `${E.core} ${cost}`;
+      btn.disabled = !Meta.canBuy(up);
+      btn.addEventListener('click', () => {
+        if (!Meta.buy(up)) return;
+        Sound.play('buy');
+        renderLab(up.id);
+      });
+    }
+
+    const el = (cls, text) => { const e = document.createElement('div'); e.className = cls; e.textContent = text; return e; };
+    card.append(el('up-icon', up.icon), el('up-name', up.name), el('up-desc', up.desc(lvl)), pips, btn);
+    return card;
+  }));
+}
+
 function startRun() {
-  if (!['title', 'dead', 'won'].includes(state)) return;
+  if (!['title', 'dead', 'won', 'lab'].includes(state)) return;
   Sound.unlock();
   Title.hide();
+  document.getElementById('lab').classList.add('hidden');
+  Meta.data.runs++;
+  Meta.save();
   document.getElementById('screen').classList.add('hidden');
   document.getElementById('screen-btn').blur();
   newRun(START_DECK);
@@ -1619,7 +1755,8 @@ window.addEventListener('keydown', ev => {
   }
   if (state !== 'play') {
     const screenOpen = !document.getElementById('screen').classList.contains('hidden');
-    if ((ev.code === 'Enter' || ev.code === 'Space') && (screenOpen || Title.visible)) {
+    if (state === 'lab' && ev.code === 'Escape') { showTitle(); return; }
+    if ((ev.code === 'Enter' || ev.code === 'Space') && (screenOpen || Title.visible || state === 'lab')) {
       ev.preventDefault();
       startRun();
     } else if (ev.code === 'Escape' && screenOpen) {
@@ -1661,6 +1798,15 @@ document.querySelectorAll('.abtn').forEach(b => {
 document.getElementById('hud-sound').addEventListener('pointerdown', ev => { ev.preventDefault(); Sound.toggle(); });
 document.getElementById('screen-btn').addEventListener('click', startRun);
 document.getElementById('screen-menu').addEventListener('click', showTitle);
+document.getElementById('screen-lab').addEventListener('click', showLab);
+document.getElementById('title-lab').addEventListener('click', showLab);
+document.getElementById('lab-back').addEventListener('click', showTitle);
+document.getElementById('lab-start').addEventListener('click', startRun);
+document.getElementById('lab-reset').addEventListener('click', () => {
+  if (!confirm('Alle Datenkerne, Upgrades und Statistiken löschen?')) return;
+  Meta.reset();
+  renderLab();
+});
 document.getElementById('brief-go').addEventListener('click', closeBriefing);
 document.getElementById('pause-resume').addEventListener('click', closePause);
 document.getElementById('pause-quit').addEventListener('click', quitRun);
