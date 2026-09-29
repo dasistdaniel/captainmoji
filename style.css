@@ -620,6 +620,131 @@ button {
   #title-lab { padding: 8px 14px; font-size: 13px; }
 }
 
+/* ---------- Abspann ---------- */
+#outro {
+  position: fixed;
+  inset: 0;
+  z-index: 14;
+  overflow: hidden;
+  background: radial-gradient(ellipse at 50% 45%, #0e1d3a 0%, #05070f 60%, #000 100%);
+  cursor: pointer;
+}
+#outro.hidden { display: none; }
+#outro-stars { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+/* repariert: kein Rauch mehr, nur sauberes Triebwerksfeuer */
+#outro-ship {
+  position: absolute;
+  left: 28%; top: 40%;
+  font-family: var(--emoji);
+  font-size: clamp(70px, 11vw, 140px);
+  line-height: 1;
+  animation: outro-bob 3s ease-in-out infinite;
+  transition: transform 2.6s cubic-bezier(.6, 0, .9, .4), opacity .4s 2.3s, left 2.6s cubic-bezier(.6, 0, .9, .4);
+  filter: drop-shadow(0 0 20px rgba(255, 150, 60, .4));
+}
+#outro-ship .rocket { display: inline-block; transform: rotate(45deg); }
+#outro-ship .flame {
+  position: absolute;
+  left: -.42em; top: .32em;
+  font-size: .42em;
+  transform: rotate(-90deg);
+  animation: t-fire .2s steps(2) infinite;
+}
+@keyframes outro-bob { 50% { margin-top: -14px; } }
+#outro.warp #outro-ship { left: 110%; transform: scale(.05); opacity: 0; animation: none; }
+#outro.warp #outro-ship .flame { font-size: .9em; left: -.95em; top: .15em; }
+
+.outro-comms {
+  position: absolute;
+  left: 50%; bottom: 9%;
+  transform: translateX(-50%);
+  width: min(620px, calc(100% - 32px));
+  display: flex; gap: 12px; align-items: center;
+  transition: opacity .5s;
+}
+#outro.warp .outro-comms, #outro.credits-on .outro-comms { opacity: 0; }
+.outro-comms .comms-face { flex: 0 0 auto; margin: 0; }
+#outro-msg {
+  flex: 1;
+  min-height: 3.2em;
+  padding: 10px 14px;
+  border: 1px solid #2f7390;
+  border-radius: 4px 14px 14px 14px;
+  background: rgba(10, 27, 38, .85);
+  font-size: 16px;
+  line-height: 1.45;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity .35s, transform .35s;
+}
+#outro-msg.show { opacity: 1; transform: none; }
+
+#outro-flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; transition: opacity .25s; }
+#outro.flash #outro-flash { opacity: 1; }
+#outro.credits-on #outro-flash { opacity: 0; transition: opacity 1.4s; }
+#outro.credits-on #outro-ship { display: none; }
+
+#credits {
+  position: absolute;
+  left: 50%; top: 100%;
+  width: min(560px, calc(100% - 32px));
+  transform: translateX(-50%);
+  text-align: center;
+  display: none;
+}
+#outro.credits-on #credits { display: block; }
+@keyframes credits-roll {
+  from { top: 100%; transform: translate(-50%, 0); }
+  to { top: 0; transform: translate(-50%, -100%); }
+}
+#credits.parked { top: 0; transform: translate(-50%, -100%); }
+.cr-logo {
+  font-family: "Orbitron", system-ui, sans-serif; font-weight: 900;
+  font-size: clamp(34px, 7vw, 64px); letter-spacing: .08em; color: #e8f6ff;
+  text-shadow: 0 0 10px rgba(79, 209, 255, .85), 0 0 34px rgba(79, 209, 255, .45);
+}
+.cr-logo span { margin-left: .3em; color: #ffb14f; text-shadow: 0 0 10px rgba(255, 177, 79, .85), 0 0 34px rgba(255, 110, 40, .45); }
+.cr-sub { color: #9fb0cf; font-size: 17px; line-height: 1.5; margin: 14px 0 50px; }
+#credits h3 {
+  margin: 44px 0 10px;
+  font-family: "Orbitron", system-ui, sans-serif;
+  font-size: 13px; letter-spacing: .2em; text-transform: uppercase; color: var(--accent);
+}
+#credits dl { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; margin: 0; }
+#credits dt { text-align: right; font-family: var(--emoji); font-size: 22px; }
+#credits dd { margin: 0; text-align: left; font-size: 17px; line-height: 30px; }
+.cr-line { margin: 0; font-size: 18px; line-height: 1.5; }
+.cr-thanks { margin: 80px 0 0; font-size: 26px; font-weight: 700; color: #e8f6ff; }
+
+#outro-end {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  background: radial-gradient(ellipse at center, rgba(5, 10, 20, .6), rgba(0, 0, 0, .85));
+  cursor: default;
+}
+#outro-end.hidden { display: none; }
+#outro-end h2 { margin: 0; font-family: "Orbitron", system-ui, sans-serif; color: #e8f6ff; font-size: 28px; }
+#outro-end .primary {
+  background: var(--accent); color: #03121a; border: 0; border-radius: 10px;
+  padding: 10px 24px; font-size: 17px; font-weight: 700; cursor: pointer;
+}
+#outro-end .ghost {
+  background: none; border: 2px solid var(--line); border-radius: 10px;
+  padding: 8px 18px; font-size: 15px; color: var(--dim); cursor: pointer;
+}
+.outro-skip { position: absolute; right: 14px; bottom: 10px; font-size: 12px; color: #4a5470; pointer-events: none; }
+#outro-end:not(.hidden) ~ .outro-skip { display: none; }
+@media (max-height: 460px) {
+  #outro-msg { font-size: 13.5px; padding: 7px 11px; }
+  .outro-comms { bottom: 6%; }
+  .outro-comms .comms-face { width: 46px; height: 46px; font-size: 28px; line-height: 44px; }
+  #outro-ship { top: 22%; }
+  .cr-sub { font-size: 14px; margin-bottom: 30px; }
+  #credits h3 { margin-top: 28px; }
+  #credits dd, .cr-line { font-size: 15px; }
+}
+
 #rotate { display: none; z-index: 20; }
 @media (orientation: portrait) and (pointer: coarse) {
   #rotate { display: flex; }

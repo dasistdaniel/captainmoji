@@ -59,6 +59,7 @@ Alle vier Decks sind spielbar – vom Schildgenerator bis zum Antrieb.
 - ☢️ Reaktorräume sind verstrahlt – die Dosis steigt, alle 4 Punkte −1 ❤️
 - 🐙 Boss: Das Tentakelmonster bewacht den Antrieb, peitscht 2 Felder weit und schickt 🦑 Tentakel los
 - Antrieb reparieren = Schiff gerettet, Spiel gewonnen
+- Abspann: Funkspruch von Chefingenieur Funke, Warp-Sprung in die Tiefen des Weltraums und Credits
 
 **🔬 Forschungslabor (Meta-Progression)**
 - 💾 Datenkerne: Drohnen lassen sie fallen, Kisten enthalten sie, jede reparierte Station gibt +3

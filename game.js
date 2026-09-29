@@ -1106,7 +1106,7 @@ function useStation(dx, dy) {
     state = 'won';
     Meta.data.wins++;
     Meta.save();
-    setTimeout(() => { showScreen('won'); Sound.music('title'); }, 1400);
+    setTimeout(() => Outro.start(), 1800);
   }
   return false;
 }
@@ -2149,7 +2149,8 @@ const coreSummary = () =>
 const SCREENS = {
   dead: {
     emoji: '☠️', title: 'Captain gefallen', btn: 'Neuer Run',
-    text: () => `Du bist auf Deck ${G.cfg.id} (${G.cfg.name}) gefallen. ${coreSummary()} Investiere sie im 🔬 Labor.`,
+    text: () => `👨‍🔧 „Captain? … Captain! Antworten Sie!“ – Die Verbindung bricht ab. ` +
+      `Du bist auf Deck ${G.cfg.id} (${G.cfg.name}) gefallen. ${coreSummary()} Investiere sie im 🔬 Labor.`,
   },
   won: {
     emoji: '🚀', title: 'Das Schiff ist gerettet!', btn: 'Nochmal spielen',
@@ -2325,6 +2326,7 @@ function quitRun() {
 }
 
 function showTitle() {
+  Outro.hide();
   state = 'title';
   Sound.music('title');
   document.getElementById('screen').classList.add('hidden');
@@ -2333,8 +2335,146 @@ function showTitle() {
   Title.show();
 }
 
+// ---------- Abspann: Funkspruch, Warp-Sprung, Credits ----------
+const Outro = (() => {
+  const el = document.getElementById('outro');
+  const cv = document.getElementById('outro-stars'), c = cv.getContext('2d');
+  const ship = document.getElementById('outro-ship');
+  const msgBox = document.getElementById('outro-msg');
+  const credits = document.getElementById('credits');
+  const endBox = document.getElementById('outro-end');
+  let stars = [], raf = 0, last = 0, w = 0, h = 0, sdpr = 1, speed = 1, phase = '', timers = [];
+
+  const MESSAGES = [
+    'Captain… der Antrieb läuft! Alle Systeme sind grün – Sie haben das Schiff gerettet.',
+    'Die Schilde halten, die Luft ist frisch, und das Tentakelding treibt irgendwo da draußen im All. Ich schulde Ihnen was.',
+    'Und jetzt? Nächster Halt: die Tiefen des Weltraums. Volle Kraft voraus, Captain!',
+  ];
+
+  function size() {
+    sdpr = window.devicePixelRatio || 1;
+    w = cv.clientWidth; h = cv.clientHeight;
+    cv.width = Math.round(w * sdpr); cv.height = Math.round(h * sdpr);
+    stars = Array.from({ length: Math.round((w * h) / 3800) }, () =>
+      ({ x: Math.random() * w, y: Math.random() * h, z: Math.random() }));
+  }
+
+  // Sterne ziehen vorbei – beim Warp-Sprung werden sie zu langen Streifen
+  function frame(t) {
+    const dt = last ? Math.min(0.05, (t - last) / 1000) : 0.016;
+    last = t;
+    c.setTransform(sdpr, 0, 0, sdpr, 0, 0);
+    c.clearRect(0, 0, w, h);
+    for (const s of stars) {
+      const v = (15 + s.z * s.z * 280) * speed;
+      s.x -= v * dt;
+      if (s.x < -400) { s.x = w + Math.random() * 60; s.y = Math.random() * h; }
+      c.fillStyle = `rgba(200,225,255,${0.2 + s.z * 0.8})`;
+      c.fillRect(s.x, s.y, 1 + s.z * s.z * 11 * Math.min(30, speed), s.z > 0.75 ? 2 : 1);
+    }
+    raf = requestAnimationFrame(frame);
+  }
+
+  const later = (fn, ms) => timers.push(setTimeout(fn, ms));
+  const clearTimers = () => { timers.forEach(clearTimeout); timers = []; };
+
+  function start() {
+    state = 'outro';
+    clearTimers();
+    document.getElementById('screen').classList.add('hidden');
+    el.classList.remove('hidden');
+    el.classList.remove('credits-on', 'warp', 'flash');
+    endBox.classList.add('hidden');
+    msgBox.textContent = '';
+    speed = 1;
+    size();
+    if (!raf) raf = requestAnimationFrame(frame);
+    Sound.music('title');
+    fillCredits();
+    phase = 'comms';
+    // 1. Funkspruch von Funke
+    let at = 900;
+    MESSAGES.forEach((m, i) => {
+      later(() => { msgBox.classList.remove('show'); }, at - 250);
+      later(() => { msgBox.textContent = m; msgBox.classList.add('show'); Sound.play('comm'); }, at);
+      at += 900 + m.length * 45;
+    });
+    later(warp, at);
+  }
+
+  // 2. Warp-Sprung: Sterne werden zu Streifen, die Rakete schießt in die Tiefe
+  function warp() {
+    if (phase !== 'comms') return;
+    phase = 'warp';
+    clearTimers();
+    msgBox.classList.remove('show');
+    el.classList.add('warp');
+    Sound.play('warp');
+    const t0 = performance.now();
+    const ramp = () => {
+      const k = (performance.now() - t0) / 2600;
+      speed = 1 + Math.pow(Math.min(1, k), 2) * 45;
+      if (k < 1 && phase === 'warp') timers.push(setTimeout(ramp, 30));
+    };
+    ramp();
+    later(() => { el.classList.add('flash'); }, 2600);
+    later(rollCredits, 3300);
+  }
+
+  // 3. Abspann
+  function rollCredits() {
+    clearTimers();
+    phase = 'credits';
+    el.classList.remove('warp');
+    el.classList.add('credits-on');
+    speed = 0.6;
+    const dur = Math.max(18, (credits.scrollHeight + el.clientHeight) / 45);
+    credits.style.animation = 'none';
+    void credits.offsetWidth; // Animation neu starten
+    credits.style.animation = `credits-roll ${dur}s linear forwards`;
+    later(showEnd, dur * 1000 - 1500);
+  }
+
+  function showEnd() {
+    clearTimers();
+    phase = 'end';
+    state = 'won';
+    el.classList.add('credits-on');
+    credits.style.animation = 'none';
+    credits.classList.add('parked');
+    endBox.classList.remove('hidden');
+  }
+
+  function fillCredits() {
+    credits.classList.remove('parked');
+    const d = Meta.data;
+    document.getElementById('credits-stats').innerHTML =
+      `Züge: <b>${G.turn}</b> · ${E.core} Datenkerne in diesem Run: <b>${G.runCores}</b><br>` +
+      `Runs gesamt: <b>${d.runs}</b> · Siege: <b>${d.wins}</b>`;
+  }
+
+  // Enter/Klick: zum nächsten Teil springen
+  function skip() {
+    if (phase === 'comms') warp();
+    else if (phase === 'warp') rollCredits();
+    else if (phase === 'credits') showEnd();
+  }
+
+  function hide() {
+    clearTimers();
+    el.classList.add('hidden');
+    cancelAnimationFrame(raf);
+    raf = 0; last = 0; phase = '';
+  }
+
+  el.addEventListener('pointerdown', ev => { if (!ev.target.closest('button')) skip(); });
+
+  return { start, skip, hide, get active() { return !el.classList.contains('hidden'); }, get phase() { return phase; } };
+})();
+
 // ---------- Forschungslabor ----------
 function showLab() {
+  Outro.hide();
   state = 'lab';
   Title.hide();
   document.getElementById('screen').classList.add('hidden');
@@ -2388,6 +2528,7 @@ function startRun() {
   if (!['title', 'dead', 'won', 'lab'].includes(state)) return;
   Sound.unlock();
   Title.hide();
+  Outro.hide();
   document.getElementById('lab').classList.add('hidden');
   Meta.data.runs++;
   Meta.save();
@@ -2420,6 +2561,15 @@ window.addEventListener('keydown', ev => {
   }
   if (state === 'paused') {
     if (ev.code === 'Enter' || ev.code === 'Space') { ev.preventDefault(); closePause(); }
+    return;
+  }
+  if (state === 'outro') {
+    if (['Enter', 'Space', 'Escape'].includes(ev.code)) { ev.preventDefault(); Outro.skip(); }
+    return;
+  }
+  if (Outro.active && state === 'won') {
+    if (ev.code === 'Enter' || ev.code === 'Space') { ev.preventDefault(); startRun(); }
+    else if (ev.code === 'Escape') showTitle();
     return;
   }
   if (state !== 'play') {
@@ -2467,6 +2617,9 @@ document.querySelectorAll('.abtn').forEach(b => {
 document.getElementById('hud-sound').addEventListener('pointerdown', ev => { ev.preventDefault(); Sound.toggle(); });
 document.getElementById('screen-btn').addEventListener('click', startRun);
 document.getElementById('screen-menu').addEventListener('click', showTitle);
+document.getElementById('outro-again').addEventListener('click', startRun);
+document.getElementById('outro-lab').addEventListener('click', showLab);
+document.getElementById('outro-title').addEventListener('click', showTitle);
 document.getElementById('screen-lab').addEventListener('click', showLab);
 document.getElementById('title-lab').addEventListener('click', showLab);
 document.getElementById('lab-back').addEventListener('click', showTitle);

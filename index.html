@@ -146,6 +146,64 @@
     </div>
   </div>
 
+  <div id="outro" class="hidden">
+    <canvas id="outro-stars"></canvas>
+    <div id="outro-ship" aria-hidden="true">
+      <span class="flame">🔥</span>
+      <span class="rocket">🚀</span>
+    </div>
+    <div class="outro-comms">
+      <div class="comms-face">👨‍🔧</div>
+      <div id="outro-msg"></div>
+    </div>
+    <div id="outro-flash"></div>
+
+    <div id="credits">
+      <div class="cr-logo">CAPTAIN<span>MOJI</span></div>
+      <p class="cr-sub">Das Schiff ist gerettet.<br>Die Reise geht weiter – in die Tiefen des Weltraums.</p>
+
+      <h3>Besetzung</h3>
+      <dl>
+        <dt>🧑‍🚀</dt><dd>Captain Moji</dd>
+        <dt>👨‍🔧</dt><dd>Chefingenieur Funke</dd>
+        <dt>🤖</dt><dd>Reparatur-Droide</dd>
+        <dt>🤖</dt><dd>Durchgedrehte Sicherheitsdrohnen</dd>
+        <dt>🦠</dt><dd>Sporen aus der Lüftung</dd>
+        <dt>👾</dt><dd>Aliens aus den Schächten</dd>
+        <dt>🦑</dt><dd>Diverse Tentakel</dd>
+        <dt>🐙</dt><dd>Das Tentakelmonster</dd>
+      </dl>
+
+      <h3>Stationen</h3>
+      <p class="cr-line">🛡️ Schildgenerator · 🫁 Lebenserhaltung · 🎯 Waffensysteme · ⚙️ Antrieb</p>
+
+      <h3>Idee &amp; Spieldesign</h3>
+      <p class="cr-line">dasistdaniel</p>
+      <h3>Programmierung</h3>
+      <p class="cr-line">Claude (Anthropic)</p>
+      <h3>Grafik</h3>
+      <p class="cr-line">100 % Emojis 🎨</p>
+      <h3>Musik &amp; Sound</h3>
+      <p class="cr-line">Live im Browser erzeugt – ganz ohne Audiodateien 🎹</p>
+
+      <h3>Dein Einsatz</h3>
+      <p id="credits-stats" class="cr-line"></p>
+
+      <p class="cr-thanks">Danke fürs Spielen! 💙</p>
+    </div>
+
+    <div id="outro-end" class="hidden">
+      <div class="big">🚀</div>
+      <h2>Danke fürs Spielen!</h2>
+      <div class="btn-row">
+        <button id="outro-again" class="primary">▶ Nochmal spielen</button>
+        <button id="outro-lab" class="ghost">🔬 Labor</button>
+        <button id="outro-title" class="ghost">Titelbild</button>
+      </div>
+    </div>
+    <div class="outro-skip">Enter / Tippen: weiter</div>
+  </div>
+
   <div id="banner"><div id="banner-title"></div></div>
 
   <div id="rotate" class="overlay">
