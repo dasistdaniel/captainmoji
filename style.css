@@ -316,12 +316,16 @@ button {
   gap: 7px;
   /* feste Höhe: die Karte darf beim Eintippen nicht wachsen */
   height: 260px;
-  overflow-y: auto;
+  /* Scrollbalken immer eingeblendet, damit er nicht auf- und abtaucht */
+  overflow-y: scroll;
   overflow-x: hidden;
-  /* scrollbar ausblenden – Scrollen per Rad/Wischen geht weiterhin */
-  scrollbar-width: none;
+  padding-right: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: #2f7390 #0a1b26;
 }
-.comms-msgs::-webkit-scrollbar { display: none; }
+.comms-msgs::-webkit-scrollbar { width: 8px; }
+.comms-msgs::-webkit-scrollbar-track { background: #0a1b26; border-radius: 4px; }
+.comms-msgs::-webkit-scrollbar-thumb { background: #2f7390; border-radius: 4px; }
 .comms-msg {
   align-self: flex-start;
   padding: 7px 11px;
