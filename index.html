@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#05070d">
   <title>Captain Moji</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&display=swap">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -43,12 +46,38 @@
     </div>
   </div>
 
-  <div id="screen" class="overlay">
+  <div id="title">
+    <canvas id="stars"></canvas>
+    <div class="t-ship" aria-hidden="true">
+      <span class="smoke s1">💨</span><span class="smoke s2">💨</span><span class="smoke s3">💨</span>
+      <span class="fire">🔥</span>
+      <span class="ship">🚀</span>
+    </div>
+    <div class="t-content">
+      <div class="t-hero" aria-hidden="true">🧑‍🚀</div>
+      <h1 class="t-logo">CAPTAIN<span>MOJI</span></h1>
+      <p class="t-tag">Das Schiff ist schwer beschädigt. Kämpf dich Deck für Deck bis zum Maschinenraum durch.</p>
+      <div class="t-route" aria-label="Missionsroute">
+        <span data-deck="1" title="Deck 1: Schilde">🛡️</span><i>›</i>
+        <span data-deck="2" title="Deck 2: Lebenserhaltung">🫁</span><i>›</i>
+        <span data-deck="3" title="Deck 3: Waffensysteme">🎯</span><i>›</i>
+        <span data-deck="4" title="Deck 4: Maschinenraum">⚙️</span>
+      </div>
+      <button id="title-start">▶ Mission starten</button>
+      <div class="t-hint">Enter zum Starten · Pfeile/WASD · Leertaste schießt · M Ton</div>
+    </div>
+    <button id="title-sound" aria-label="Ton an/aus">🔊</button>
+  </div>
+
+  <div id="screen" class="overlay hidden">
     <div class="panel">
       <div id="screen-emoji" class="big">🧑‍🚀</div>
       <h1 id="screen-title">Captain Moji</h1>
       <p id="screen-text"></p>
-      <button id="screen-btn">Start</button>
+      <div class="btn-row">
+        <button id="screen-btn">Neuer Run</button>
+        <button id="screen-menu" class="ghost">Titelbild</button>
+      </div>
     </div>
   </div>
 

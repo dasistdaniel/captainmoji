@@ -1512,7 +1512,9 @@ function renderHud() {
 }
 
 function renderSoundBtn() {
-  document.getElementById('hud-sound').textContent = Sound.muted ? '🔇' : '🔊';
+  const icon = Sound.muted ? '🔇' : '🔊';
+  document.getElementById('hud-sound').textContent = icon;
+  document.getElementById('title-sound').textContent = icon;
 }
 
 function renderLog() {
@@ -1524,11 +1526,6 @@ function renderLog() {
 
 // ---------- Bildschirme ----------
 const SCREENS = {
-  title: {
-    emoji: E.captain, title: 'Captain Moji', btn: 'Start',
-    text: 'Das Raumschiff ist schwer beschädigt! Kämpf dich Deck für Deck zum Maschinenraum durch. ' +
-          `Zuerst: Finde das ${E.wrench} und repariere den ${E.generator} Schildgenerator.`,
-  },
   dead: {
     emoji: '☠️', title: 'Captain gefallen', btn: 'Neuer Run',
     text: () => `Du bist auf Deck ${G.cfg.id} (${G.cfg.name}) gefallen. Permadeath – der Run beginnt wieder bei Deck 1.`,
@@ -1551,9 +1548,64 @@ function showScreen(name) {
 // Zum Testen: index.html?deck=2 startet direkt auf Deck 2 (mit den Boni der vorherigen Decks)
 const START_DECK = clamp((parseInt(new URLSearchParams(location.search).get('deck'), 10) || 1) - 1, 0, DECKS.length - 1);
 
+// ---------- Titelbildschirm ----------
+const Title = (() => {
+  const el = document.getElementById('title');
+  const cv = document.getElementById('stars'), c = cv.getContext('2d');
+  let stars = [], raf = 0, last = 0, w = 0, h = 0, sdpr = 1;
+
+  // Missionsroute: noch nicht gebaute Decks ausgrauen
+  el.querySelectorAll('.t-route span').forEach(s => s.classList.toggle('soon', +s.dataset.deck > DECKS.length));
+
+  function size() {
+    sdpr = window.devicePixelRatio || 1;
+    w = cv.clientWidth; h = cv.clientHeight;
+    cv.width = Math.round(w * sdpr); cv.height = Math.round(h * sdpr);
+    stars = Array.from({ length: Math.round((w * h) / 4500) }, () =>
+      ({ x: Math.random() * w, y: Math.random() * h, z: Math.random() }));
+  }
+
+  // Sternenfeld zieht nach links vorbei – das Schiff fliegt
+  function frame(t) {
+    const dt = last ? Math.min(0.05, (t - last) / 1000) : 0.016;
+    last = t;
+    c.setTransform(sdpr, 0, 0, sdpr, 0, 0);
+    c.clearRect(0, 0, w, h);
+    for (const s of stars) {
+      s.x -= (15 + s.z * s.z * 280) * dt;
+      if (s.x < -12) { s.x = w + 4; s.y = Math.random() * h; }
+      c.fillStyle = `rgba(200,225,255,${0.2 + s.z * 0.8})`;
+      c.fillRect(s.x, s.y, 1 + s.z * s.z * 11, s.z > 0.75 ? 2 : 1);
+    }
+    raf = requestAnimationFrame(frame);
+  }
+
+  return {
+    get visible() { return !el.classList.contains('hidden'); },
+    show() {
+      el.classList.remove('hidden');
+      size();
+      if (!raf) raf = requestAnimationFrame(frame);
+    },
+    hide() {
+      el.classList.add('hidden');
+      cancelAnimationFrame(raf);
+      raf = 0; last = 0;
+    },
+    resize() { if (this.visible) size(); },
+  };
+})();
+
+function showTitle() {
+  state = 'title';
+  document.getElementById('screen').classList.add('hidden');
+  Title.show();
+}
+
 function startRun() {
   if (state === 'play' || state === 'travel') return;
   Sound.unlock();
+  Title.hide();
   document.getElementById('screen').classList.add('hidden');
   document.getElementById('screen-btn').blur();
   newRun(START_DECK);
@@ -1573,9 +1625,12 @@ let lastKeyTime = 0;
 window.addEventListener('keydown', ev => {
   if (ev.code === 'KeyM') { Sound.toggle(); return; }
   if (state !== 'play') {
-    if ((ev.code === 'Enter' || ev.code === 'Space') && !document.getElementById('screen').classList.contains('hidden')) {
+    const screenOpen = !document.getElementById('screen').classList.contains('hidden');
+    if ((ev.code === 'Enter' || ev.code === 'Space') && (screenOpen || Title.visible)) {
       ev.preventDefault();
       startRun();
+    } else if (ev.code === 'Escape' && screenOpen) {
+      showTitle();
     }
     return;
   }
@@ -1612,10 +1667,14 @@ document.querySelectorAll('.abtn').forEach(b => {
 
 document.getElementById('hud-sound').addEventListener('pointerdown', ev => { ev.preventDefault(); Sound.toggle(); });
 document.getElementById('screen-btn').addEventListener('click', startRun);
+document.getElementById('screen-menu').addEventListener('click', showTitle);
+document.getElementById('title-start').addEventListener('click', () => { startRun(); Sound.play('elevator'); });
+document.getElementById('title-sound').addEventListener('click', () => Sound.toggle());
+window.addEventListener('resize', () => Title.resize());
 window.addEventListener('resize', resize);
 window.addEventListener('orientationchange', () => setTimeout(resize, 150));
 
 // ---------- Start ----------
 renderSoundBtn();
-showScreen('title');
+showTitle();
 resize();

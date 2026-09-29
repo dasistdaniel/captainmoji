@@ -236,6 +236,153 @@ button {
   cursor: pointer;
 }
 
+.btn-row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+#screen-menu {
+  background: none;
+  border: 2px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 18px;
+  font-size: 15px;
+  color: var(--dim);
+  cursor: pointer;
+}
+
+/* ---------- Titelbildschirm ---------- */
+#title {
+  position: fixed;
+  inset: 0;
+  z-index: 12;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: radial-gradient(ellipse at 70% 25%, #13264a 0%, #070b16 55%, #03050a 100%);
+}
+#title.hidden { display: none; }
+#stars { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+.t-content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  text-align: center;
+}
+.t-hero {
+  font-family: var(--emoji);
+  font-size: 84px;
+  line-height: 1;
+  animation: t-float 4.5s ease-in-out infinite;
+  filter: drop-shadow(0 0 20px rgba(79, 209, 255, .35));
+}
+@keyframes t-float {
+  0%, 100% { transform: translateY(0) rotate(-7deg); }
+  50% { transform: translateY(-14px) rotate(7deg); }
+}
+.t-logo {
+  margin: 0;
+  font-family: "Orbitron", system-ui, sans-serif;
+  font-weight: 900;
+  font-size: clamp(34px, 8vw, 76px);
+  line-height: 1;
+  letter-spacing: .08em;
+  color: #e8f6ff;
+  text-shadow: 0 0 10px rgba(79, 209, 255, .85), 0 0 34px rgba(79, 209, 255, .45);
+}
+.t-logo span {
+  margin-left: .3em;
+  color: #ffb14f;
+  text-shadow: 0 0 10px rgba(255, 177, 79, .85), 0 0 34px rgba(255, 110, 40, .45);
+  animation: t-flicker 6s infinite;
+}
+/* kaputte Leuchtschrift */
+@keyframes t-flicker {
+  0%, 90%, 100% { opacity: 1; }
+  91% { opacity: .25; } 92% { opacity: 1; } 94% { opacity: .45; } 95% { opacity: 1; }
+}
+.t-tag { margin: 0; max-width: 470px; color: #9fb0cf; font-size: 15px; line-height: 1.45; }
+.t-route {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--emoji);
+  font-size: 26px;
+}
+.t-route i { font-style: normal; color: var(--dim); font-family: system-ui, sans-serif; }
+.t-route span { filter: drop-shadow(0 0 8px rgba(79, 209, 255, .5)); }
+.t-route span.soon { opacity: .28; filter: grayscale(1); }
+#title-start {
+  margin-top: 4px;
+  padding: 12px 30px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--accent);
+  color: #03121a;
+  font-family: "Orbitron", system-ui, sans-serif;
+  font-weight: 700;
+  font-size: 17px;
+  letter-spacing: .04em;
+  cursor: pointer;
+  animation: t-pulse 2.2s ease-in-out infinite;
+}
+@keyframes t-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(79, 209, 255, .55); }
+  50% { box-shadow: 0 0 0 12px rgba(79, 209, 255, 0); }
+}
+.t-hint { color: var(--dim); font-size: 12px; }
+#title-sound {
+  position: absolute;
+  top: 10px; right: 12px;
+  background: none;
+  border: 0;
+  font-size: 22px;
+  cursor: pointer;
+}
+
+/* beschädigtes Schiff im Hintergrund */
+.t-ship {
+  position: absolute;
+  top: 12%;
+  right: 9%;
+  width: 1.2em; height: 1.2em;
+  font-family: var(--emoji);
+  font-size: 56px;
+  line-height: 1;
+  animation: t-drift 9s ease-in-out infinite;
+  opacity: .9;
+}
+.t-ship span { position: absolute; left: 0; top: 0; }
+.t-ship .ship { transform: rotate(45deg); }
+.t-ship .fire { font-size: .38em; left: -14%; top: 38%; animation: t-fire .35s steps(2) infinite; }
+.t-ship .smoke { font-size: .45em; left: -18%; top: 32%; opacity: 0; animation: t-smoke 2.4s linear infinite; }
+.t-ship .s2 { animation-delay: .8s; }
+.t-ship .s3 { animation-delay: 1.6s; }
+@keyframes t-drift {
+  0%, 100% { transform: translate(0, 0) rotate(0); }
+  50% { transform: translate(-18px, 10px) rotate(-4deg); }
+}
+@keyframes t-fire { 0% { transform: scale(1); } 100% { transform: scale(.75) translateX(2px); } }
+@keyframes t-smoke {
+  0% { opacity: .8; transform: translate(0, 0) scale(.6); }
+  100% { opacity: 0; transform: translate(-4em, .7em) scale(1.6); }
+}
+
+/* niedrige Querformat-Bildschirme (Handy) */
+@media (max-height: 460px) {
+  .t-content { gap: 7px; padding: 8px; }
+  .t-hero { font-size: 46px; }
+  .t-logo { font-size: 36px; }
+  .t-tag { font-size: 12.5px; max-width: 400px; }
+  .t-route { font-size: 20px; }
+  #title-start { padding: 9px 24px; font-size: 15px; }
+  .t-ship { font-size: 40px; top: 8%; right: 6%; }
+}
+@media (pointer: coarse) {
+  .t-hint { display: none; }
+}
+
 #rotate { display: none; z-index: 20; }
 @media (orientation: portrait) and (pointer: coarse) {
   #rotate { display: flex; }
