@@ -50,7 +50,7 @@ const DECKS = [
     modes: { sleep: 0.35, patrol: 0.3, guard: 0.35 },
     items: { medkit: [1, 2], battery: [2, 3] },
     crateLoot: { battery: 0.3, medkit: 0.15 },
-    goalItem: 'wrench', station: 'generator',
+    goalItem: 'wrench', station: 'generator', goalMinRooms: 3,
     intro: 'Finde das 🔧 und bring es zum 🛡️ Schildgenerator.',
   },
 ];
@@ -92,7 +92,14 @@ function newRun() {
 
 // ---------- Deck-Generierung ----------
 function loadDeck(cfg) {
-  const map = generateMap(cfg);
+  // Karten ohne genug weit entfernte Räume für Station und Zielitem werden neu gewürfelt
+  let map;
+  for (let tries = 0; tries < 30; tries++) {
+    map = generateMap(cfg);
+    Object.assign(G, map, { props: null });
+    const hops = roomHops(0);
+    if (hops.filter(h => h >= cfg.goalMinRooms).length >= 2) break;
+  }
   Object.assign(G, map, {
     cfg, enemies: [], items: new Map(), props: new Map(), deco: new Map(), station: null,
     visitedRooms: new Set([0]),
@@ -105,24 +112,24 @@ function loadDeck(cfg) {
   G.player.x = G.player.rx = start.cx;
   G.player.y = G.player.ry = start.cy;
 
-  // Station in den am weitesten entfernten Raum
+  // Station in den am weitesten entfernten Raum – gemessen in Räumen, bei Gleichstand in Feldern
   const dist = bfs(G.player.x, G.player.y, () => true);
-  let far = 1, best = -1;
-  for (let i = 1; i < rooms.length; i++) {
-    const d = dist[idx(rooms[i].cx, rooms[i].cy)];
-    if (d > best) { best = d; far = i; }
-  }
+  const hops = roomHops(0);
+  const tileDist = i => dist[idx(rooms[i].cx, rooms[i].cy)];
+  let far = 1;
+  for (let i = 2; i < rooms.length; i++)
+    if (hops[i] > hops[far] || (hops[i] === hops[far] && tileDist(i) > tileDist(far))) far = i;
   G.station = { x: rooms[far].cx, y: rooms[far].cy, type: cfg.station, repaired: false, room: far };
 
   rooms.forEach((r, i) => { r.theme = i === 0 ? 'bruecke' : i === far ? 'generator' : pick(cfg.themes); });
   rooms.forEach((r, i) => placeProps(i));
   placeDeco();
 
-  // Zielitem weder im Start- noch im Stationsraum, möglichst weit weg vom Start
+  // Zielitem weder im Start- noch im Stationsraum und mindestens `goalMinRooms` Räume vom Start entfernt
   const others = rooms.map((r, i) => i).filter(i => i !== 0 && i !== far);
-  others.sort((a, b) => dist[idx(rooms[b].cx, rooms[b].cy)] - dist[idx(rooms[a].cx, rooms[a].cy)]);
-  const toolRoom = others[rand(0, Math.min(2, others.length - 1))];
-  placeItem(cfg.goalItem, toolRoom);
+  const maxHops = Math.max(...others.map(i => hops[i]));
+  const candidates = others.filter(i => hops[i] >= Math.min(cfg.goalMinRooms, maxHops));
+  placeItem(cfg.goalItem, pick(candidates));
 
   for (const [type, [a, b]] of Object.entries(cfg.items)) {
     const n = rand(a, b);
@@ -151,7 +158,7 @@ function generateMap(cfg) {
   for (let tries = 0; tries < 500 && rooms.length < cfg.maxRooms; tries++) {
     const rw = rand(5, 10), rh = rand(4, 7);
     const x = rand(1, w - rw - 1), y = rand(1, h - rh - 1);
-    const overlaps = rooms.some(r => x - 2 < r.x + r.w && x + rw + 2 > r.x && y - 2 < r.y + r.h && y + rh + 2 > r.y);
+    const overlaps = rooms.some(r => x - 3 < r.x + r.w && x + rw + 3 > r.x && y - 3 < r.y + r.h && y + rh + 3 > r.y);
     if (!overlaps) rooms.push({ x, y, w: rw, h: rh, cx: x + (rw >> 1), cy: y + (rh >> 1) });
   }
   rooms.sort((a, b) => a.cx - b.cx);
@@ -188,6 +195,15 @@ function generateMap(cfg) {
         if (lr || ud) tiles[at(xx, yy)] = T.DOOR;
       }
   });
+  // Doppeltüren vermeiden: liegt direkt dahinter (oder ein Gangfeld weiter) schon eine Tür, wird diese zum Gang
+  const doorAt = (x, y) => !isWall(x, y) && tiles[at(x, y)] === T.DOOR;
+  for (let i = 0; i < tiles.length; i++) {
+    if (tiles[i] !== T.DOOR) continue;
+    const x = i % w, y = (i / w) | 0;
+    const twin = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) =>
+      doorAt(x + dx, y + dy) || (!isWall(x + dx, y + dy) && doorAt(x + 2 * dx, y + 2 * dy)));
+    if (twin) tiles[i] = T.FLOOR;
+  }
 
   return { w, h, tiles, roomAt, rooms };
 }
@@ -210,6 +226,36 @@ function placeProps(ri) {
       else G.props.delete(key);
     }
   }
+}
+
+// Wie viele Räume liegen zwischen Raum `from` und jedem anderen Raum? (Graph über Gänge)
+function roomHops(from) {
+  const n = G.rooms.length;
+  const adj = G.rooms.map(() => new Set());
+  for (let ri = 0; ri < n; ri++) {
+    const seen = new Uint8Array(G.w * G.h), q = [];
+    const r = G.rooms[ri];
+    for (let y = r.y; y < r.y + r.h; y++)
+      for (let x = r.x; x < r.x + r.w; x++) { seen[idx(x, y)] = 1; q.push(x, y); }
+    for (let i = 0; i < q.length; i += 2) {
+      for (const [dx, dy] of Object.values(DIRS)) {
+        const nx = q[i] + dx, ny = q[i + 1] + dy;
+        if (!passable(nx, ny)) continue;
+        const ni = idx(nx, ny);
+        if (seen[ni]) continue;
+        seen[ni] = 1;
+        const other = G.roomAt[ni];
+        if (other >= 0 && other !== ri) { adj[ri].add(other); continue; } // dort endet der Gang
+        q.push(nx, ny);
+      }
+    }
+  }
+  const hops = new Array(n).fill(Infinity);
+  hops[from] = 0;
+  const q = [from];
+  for (let i = 0; i < q.length; i++)
+    for (const o of adj[q[i]]) if (hops[o] === Infinity) { hops[o] = hops[q[i]] + 1; q.push(o); }
+  return hops;
 }
 
 function allReachable() {
