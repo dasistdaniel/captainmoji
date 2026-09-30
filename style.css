@@ -469,12 +469,21 @@ button {
 }
 .t-ship span { position: absolute; left: 0; top: 0; }
 .t-ship .ship { transform: rotate(45deg); }
-/* Flamme zeigt nach hinten; eigene Animation, damit das Flackern die Drehung nicht überschreibt */
-.t-ship .fire { font-size: .38em; left: -23%; top: 28%; transform: rotate(-90deg); animation: t-fire-back .35s steps(2) infinite; }
-@keyframes t-fire-back {
-  0% { transform: rotate(-90deg) scale(1); }
-  100% { transform: rotate(-90deg) scale(.8, .9); }
+/* Triebwerksstrahl: gezeichneter Kegel statt 🔥-Emoji (das wirkt liegend wie zwei Feuerbälle).
+   Maße in em der Rakete; die rechte Kante sitzt an der Düse. */
+.plume {
+  width: .62em; height: .22em;
+  border-radius: 50% 20% 20% 50% / 50%;
+  background: radial-gradient(ellipse 100% 50% at 100% 50%, #fffbe0 0%, #ffd93d 30%, #ff8a2a 62%, rgba(255, 70, 20, 0) 100%);
+  filter: blur(.5px) drop-shadow(0 0 6px rgba(255, 140, 40, .8));
+  transform-origin: 100% 50%;
+  animation: plume .11s ease-in-out infinite alternate;
 }
+@keyframes plume {
+  from { transform: scale(1, 1); }
+  to { transform: scale(.72, .85); }
+}
+.t-ship .fire { left: -.46em; top: .43em; }
 .t-ship .smoke { font-size: .45em; left: -18%; top: 32%; opacity: 0; animation: t-smoke 2.4s linear infinite; }
 .t-ship .s2 { animation-delay: .8s; }
 .t-ship .s3 { animation-delay: 1.6s; }
@@ -651,22 +660,11 @@ button {
   filter: drop-shadow(0 0 20px rgba(255, 150, 60, .4));
 }
 #outro-ship .rocket { display: inline-block; transform: rotate(45deg); }
-/* Flamme zeigt nach hinten (links); eigene Animation, damit das Flackern die Drehung nicht überschreibt */
-#outro-ship .flame {
-  position: absolute;
-  /* left/top in em der Flamme selbst – sitzt so direkt am Heck */
-  left: -.76em; top: .74em;
-  font-size: .42em;
-  transform: rotate(-90deg);
-  animation: outro-fire .2s steps(2) infinite;
-}
-@keyframes outro-fire {
-  0% { transform: rotate(-90deg) scale(1); }
-  100% { transform: rotate(-90deg) scale(.8, .9); }
-}
+#outro-ship .flame { position: absolute; left: -.46em; top: .43em; }
 @keyframes outro-bob { 50% { margin-top: -14px; } }
 #outro.warp #outro-ship { left: 110%; transform: scale(.05); opacity: 0; animation: none; }
-#outro.warp #outro-ship .flame { font-size: .9em; left: -.86em; top: .08em; }
+/* beim Warp-Sprung wird der Strahl lang */
+#outro.warp #outro-ship .flame { width: 1.4em; height: .28em; left: -1.24em; top: .4em; }
 
 .outro-comms {
   position: absolute;
