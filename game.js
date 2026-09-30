@@ -92,18 +92,22 @@ const ROOM_THEMES = {
 const STATIONS = {
   generator: {
     emoji: E.generator, name: 'Schildgenerator', done: 'Schilde repariert!', bonus: 'shield',
+    failedAgain: 'der 🛡️ Schildgenerator wieder ausgefallen ist',
     bonusText: `${E.generator} Bonus: Dein Schild fängt ab jetzt regelmäßig einen Treffer ab.`,
   },
   lifesupport: {
     emoji: E.lifesupport, name: 'Lebenserhaltung', done: 'Lebenserhaltung läuft wieder!', bonus: 'regen',
+    failedAgain: 'die 🫁 Lebenserhaltung wieder ausgefallen ist',
     bonusText: `${E.lifesupport} Bonus: Du regenerierst langsam ❤️.`,
   },
   weapons: {
     emoji: E.weapons, name: 'Waffensysteme', done: 'Waffensysteme online!', bonus: 'blaster',
+    failedAgain: 'die 🎯 Waffensysteme wieder ausgefallen sind',
     bonusText: `${E.weapons} Bonus: Dein Blaster macht +1 Schaden.`,
   },
   drive: {
     emoji: E.drive, name: 'Antrieb', done: 'Antrieb repariert!', bonus: 'drive',
+    failedAgain: 'der ⚙️ Antrieb wieder streikt',
     bonusText: `${E.drive} Der Antrieb läuft – das Schiff ist gerettet!`,
   },
 };
@@ -239,11 +243,12 @@ const UPGRADES = [
 
 const Meta = {
   KEY: 'captainMoji.save',
-  data: { cores: 0, totalCores: 0, upgrades: {}, runs: 0, bestDeck: 0, wins: 0 },
+  data: { cores: 0, totalCores: 0, upgrades: {}, runs: 0, bestDeck: 0, wins: 0, reached: {}, repaired: {} },
   load() {
     try {
       const d = JSON.parse(localStorage.getItem(this.KEY));
-      if (d) Object.assign(this.data, d, { upgrades: Object.assign({}, d.upgrades) });
+      if (d) Object.assign(this.data, d, { upgrades: Object.assign({}, d.upgrades),
+        reached: Object.assign({}, d.reached), repaired: Object.assign({}, d.repaired) });
     } catch (e) { /* ohne Speicher geht es auch */ }
   },
   save() {
@@ -269,7 +274,7 @@ const Meta = {
     return true;
   },
   reset() {
-    this.data = { cores: 0, totalCores: 0, upgrades: {}, runs: 0, bestDeck: 0, wins: 0 };
+    this.data = { cores: 0, totalCores: 0, upgrades: {}, runs: 0, bestDeck: 0, wins: 0, reached: {}, repaired: {} };
     this.save();
   },
 };
@@ -618,6 +623,9 @@ function loadDeck(cfg) {
   }
 
   Meta.data.bestDeck = Math.max(Meta.data.bestDeck, cfg.id);
+  // Vorgeschichte des Decks merken (für Funkes Funkspruch), dann diesen Besuch zählen
+  G.deckHistory = { reached: Meta.data.reached[cfg.id] || 0, repaired: Meta.data.repaired[cfg.id] || 0 };
+  Meta.data.reached[cfg.id] = G.deckHistory.reached + 1;
   Meta.save();
   // Reparatur-Droide startet neben dem Captain – auf jedem Deck frisch repariert
   G.droid = null;
@@ -1266,6 +1274,8 @@ function useStation(dx, dy) {
   p.hasTool = false;
   G.station.repaired = true;
   grantBonus(st.bonus);
+  Meta.data.repaired[G.cfg.id] = (Meta.data.repaired[G.cfg.id] || 0) + 1;
+  Meta.save();
   collectCores(CORES_PER_STATION, G.station);
   sparks(G.station.x, G.station.y, '#4fd1ff', 24);
   floatText(G.station.x, G.station.y, st.done, '#4fd1ff', 1400);
@@ -2460,8 +2470,13 @@ const COMMS_READ_MS = 7;    // … plus Lesezeit je Zeichen
 let comms = null;
 
 function showBriefing() {
-  const cfg = G.cfg, b = cfg.briefing;
-  showComms({ label: `${cfg.icon} Deck ${cfg.id}/${DECKS.length} · ${cfg.name}`, messages: b.messages, footer: `🎁 ${b.reward}` });
+  const cfg = G.cfg, b = cfg.briefing, h = G.deckHistory || {};
+  if (!b) return;
+  const messages = [...b.messages];
+  // Schon mal hier gewesen? Funke erklärt, warum alles wieder kaputt ist
+  if (h.repaired) messages.unshift(`Schlechte Nachrichten, Captain: Der 🌀 Notfall-Transporter hat so viel Energie gezogen, dass ${STATIONS[cfg.station].failedAgain}. Sie müssen nochmal ran.`);
+  else if (h.reached) messages.unshift(`Deck ${cfg.id} kennen Sie schon, Captain – hier hat es Sie beim letzten Mal erwischt. Diesmal schaffen wir das.`);
+  showComms({ label: `${cfg.icon} Deck ${cfg.id}/${DECKS.length} · ${cfg.name}`, messages, footer: `🎁 ${b.reward}` });
 }
 
 function showComms({ label, messages, footer }) {
