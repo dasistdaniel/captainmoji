@@ -18,7 +18,7 @@ const E = {
 };
 
 // Bewusst knapp: ohne Upgrades aus dem Labor schafft man kaum einen kompletten Durchlauf
-const PLAYER_BASE = { maxHp: 6, ammo: 2, meleeDmg: 2, blasterDmg: 3, blasterRange: 6 };
+const PLAYER_BASE = { maxHp: 6, ammo: 4, meleeDmg: 2, blasterDmg: 3, blasterRange: 6 };
 
 // Boni der reparierten Stationen
 const SHIELD_RECHARGE = 20; // Züge, bis der Schild nach einem abgefangenen Treffer wieder bereit ist
