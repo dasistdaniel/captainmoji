@@ -1692,6 +1692,7 @@ function enemyAttack(e, t) {
 
 function hurtPlayer(dmg) {
   const p = G.player;
+  if (p.shielded) { floatText(p.x, p.y, '0', '#ffd84f'); return; }
   p.hp -= dmg;
   addEffect({ type: 'hurt', ms: 220 });
   floatText(p.x, p.y, `-${dmg}`, '#ff5a6e');
@@ -2809,6 +2810,57 @@ function startRun() {
   goToBridge(state === 'won' ? 'win' : Meta.data.introSeen ? 'return' : 'intro');
 }
 
+// ---------- Service-Befehle am Terminal ----------
+// Wer vor einem Terminal steht, kann Befehle eintippen (Tastatur). Befehle werden über ihre Prüfsumme erkannt.
+const SERVICE = {
+  0x6c74e559: () => {
+    const p = G.player;
+    p.shielded = !p.shielded;
+    Sound.play(p.shielded ? 'shieldup' : 'deny');
+    addLog(`🖥️ >> DEGREELESSNESS MODE ${p.shielded ? 'ON' : 'OFF'}`);
+  },
+  0x85a88e9c: () => {
+    const p = G.player;
+    p.ammo += 50;
+    p.medkits += 3;
+    p.extinguisher = (p.extinguisher || 0) + 9;
+    p.o2 = p.o2Max;
+    if (G.tiles.includes(T.LOCKED)) p.hasKeycard = true;
+    Sound.play('tool');
+    addLog('🖥️ >> VERY HAPPY AMMO ADDED');
+  },
+};
+const termInput = { buf: '', until: 0 };
+
+function checksum(str) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) h = Math.imul(h ^ str.charCodeAt(i), 0x01000193) >>> 0;
+  return h;
+}
+
+function facingTerminal() {
+  const p = G.player, [dx, dy] = p.face;
+  const pr = propAt(p.x + dx, p.y + dy);
+  return !!pr && ['terminal', 'shipinfo', 'labterm'].includes(pr.type);
+}
+
+function terminalKeys(ev) {
+  const m = /^Key([A-Z])$/.exec(ev.code), now = performance.now();
+  if (termInput.buf && now > termInput.until) termInput.buf = '';
+  if (!m) { termInput.buf = ''; return false; }
+  const ch = m[1].toLowerCase();
+  if (!termInput.buf && (ch !== 'i' || !facingTerminal())) return false;
+  ev.preventDefault();
+  termInput.buf += ch;
+  termInput.until = now + 2000;
+  if (termInput.buf.length >= 5) {
+    const cmd = SERVICE[checksum(termInput.buf)];
+    termInput.buf = '';
+    if (cmd) { cmd(); renderHud(); requestRender(); }
+  }
+  return true;
+}
+
 // ---------- Eingabe ----------
 const KEYMAP = {
   ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', KeyS: 'down',
@@ -2854,6 +2906,7 @@ window.addEventListener('keydown', ev => {
     }
     return;
   }
+  if (terminalKeys(ev)) return;
   const a = KEYMAP[ev.code];
   if (!a) return;
   ev.preventDefault();
