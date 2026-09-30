@@ -2456,8 +2456,8 @@ const Title = (() => {
 // Die Nachrichten tippen sich nacheinander ein – wie ein Funkspruch
 const CHIEF = { name: 'Chefingenieur Funke', emoji: '👨‍🔧' };
 const COMMS_CHAR_MS = 28;  // Tippgeschwindigkeit je Zeichen
-const COMMS_PAUSE_MS = 900; // Grundpause zwischen zwei Nachrichten …
-const COMMS_READ_MS = 18;   // … plus Lesezeit je Zeichen
+const COMMS_PAUSE_MS = 500; // Grundpause zwischen zwei Nachrichten …
+const COMMS_READ_MS = 7;    // … plus Lesezeit je Zeichen
 let comms = null;
 
 function showBriefing() {
