@@ -126,6 +126,7 @@ const Sound = (() => {
     roar:     () => { tone({ type: 'sawtooth', f0: 110, f1: 45, dur: 1.2, vol: 0.14 }); tone({ type: 'square', f0: 165, f1: 70, dur: 1.0, vol: 0.05 }); noise({ dur: 1.0, vol: 0.18, freq: 900 }); },
     comm:     () => { noise({ dur: 0.08, vol: 0.06, freq: 3000 }); tone({ type: 'square', f0: 1800, f1: 1500, dur: 0.06, vol: 0.03, delay: 0.05 }); tone({ type: 'square', f0: 2200, f1: 2000, dur: 0.05, vol: 0.025, delay: 0.12 }); },
     warp:     () => { tone({ type: 'sawtooth', f0: 60, f1: 1400, dur: 2.6, vol: 0.07 }); tone({ type: 'sine', f0: 120, f1: 2400, dur: 2.6, vol: 0.05 }); noise({ dur: 2.8, vol: 0.12, freq: 9000 }); },
+    teleport: () => { tone({ type: 'sine', f0: 300, f1: 1800, dur: 0.9, vol: 0.08 }); tone({ type: 'triangle', f0: 600, f1: 2400, dur: 0.9, vol: 0.05, delay: 0.1 }); noise({ dur: 0.9, vol: 0.08, freq: 7000 }); },
     elevator: () => { tone({ type: 'sawtooth', f0: 80, f1: 320, dur: 1.2, vol: 0.06 }); arp([523, 659, 784], 'triangle', 0.15, 0.25, 0.09); },
   };
 

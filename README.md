@@ -33,6 +33,12 @@ Das Raumschiff ist schwer beschädigt. Als Captain kämpfst du dich Deck für De
 
 Alle vier Decks sind spielbar – vom Schildgenerator bis zum Antrieb.
 
+**🧑‍🚀 Die Brücke (Heimatbasis)**
+- Jeder Einsatz beginnt auf der Brücke; Chefingenieur Funke meldet sich per Funk
+- 🔬 Forschungsterminal: Datenkerne in Upgrades stecken · 🛗 Aufzug: neuer Durchlauf ab Deck 1
+- Stirbt der Captain, holt ihn der 🌀 Notfall-Transporter zurück auf die Brücke – der Run beginnt von vorn
+- Schwierig: Ohne Upgrades ist ein kompletter Durchlauf kaum zu schaffen
+
 **Deck 1 – 🛡️ Schilde**
 - Zufällig generierte Räume mit Raumtypen (Brücke, Lager, Kontrollraum, Quartier, Technik, Messe)
 - 📦 Kisten zerschlagen oder zerschießen – manchmal steckt 🔋 oder 🩹 drin
@@ -61,11 +67,12 @@ Alle vier Decks sind spielbar – vom Schildgenerator bis zum Antrieb.
 - Antrieb reparieren = Schiff gerettet, Spiel gewonnen
 - Abspann: Funkspruch von Chefingenieur Funke, Warp-Sprung in die Tiefen des Weltraums und Credits
 
-**🔬 Forschungslabor (Meta-Progression)**
-- 💾 Datenkerne: Drohnen lassen sie fallen, Kisten enthalten sie, jede reparierte Station gibt +3
+**🔬 Forschungslabor (Meta-Progression, auf der Brücke)**
+- 💾 Datenkerne: Gegner lassen sie fallen, Kisten enthalten sie, jede reparierte Station gibt +4, der Boss +8
 - Kerne bleiben nach dem Tod erhalten (im Browser gespeichert) und werden im Labor ausgegeben
-- Upgrades: ❤️ Verstärkter Anzug, 🩹 Notfallpaket, 🔋 Größere Energiezellen, 📡 Scanner
-- 🤖 Reparatur-Droide (💾 30): folgt dem Captain, greift wache Gegner an, repariert alle 15 Züge +1 ❤️,
+- Upgrades: ❤️ Verstärkter Anzug (+2 ❤️/Stufe), 🩹 Notfallpaket, 🔋 Größere Energiezellen,
+  🔫 Blaster-Tuning, 🦾 Servo-Handschuhe, 📡 Scanner
+- 🤖 Reparatur-Droide (💾 25): folgt dem Captain, greift wache Gegner an, repariert alle 15 Züge +1 ❤️,
   wenn er neben dir steht; fällt er aus, wird er im nächsten Aufzug repariert. Hineinlaufen = Platz tauschen.
 
 Zwischen den Decks geht es mit dem 🛗 Aufzug weiter; ❤️, 🔋, 🩹 und Boni bleiben erhalten.

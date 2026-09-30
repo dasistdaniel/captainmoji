@@ -17,15 +17,16 @@ const E = {
   drive: '⚙️', boss: '🐙', tentacle: '🦑', fire: '🔥', extinguisher: '🧯', rad: '☢️',
 };
 
-const PLAYER_BASE = { maxHp: 10, ammo: 3, meleeDmg: 2, blasterDmg: 3, blasterRange: 6 };
+// Bewusst knapp: ohne Upgrades aus dem Labor schafft man kaum einen kompletten Durchlauf
+const PLAYER_BASE = { maxHp: 6, ammo: 2, meleeDmg: 2, blasterDmg: 3, blasterRange: 6 };
 
 // Boni der reparierten Stationen
-const SHIELD_RECHARGE = 15; // Züge, bis der Schild nach einem abgefangenen Treffer wieder bereit ist
-const REGEN_EVERY = 12;     // alle n Züge +1 ❤️
+const SHIELD_RECHARGE = 20; // Züge, bis der Schild nach einem abgefangenen Treffer wieder bereit ist
+const REGEN_EVERY = 16;     // alle n Züge +1 ❤️
 const ELEVATOR_MIN_ROOMS = 2; // so viele Räume liegt der Aufzug mindestens von der Station entfernt
 
 // Deck 4: Strahlung und Feuer
-const RAD_LIMIT = 4;        // so viel Dosis kostet 1 ❤️
+const RAD_LIMIT = 3;        // so viel Dosis kostet 1 ❤️
 const RAD_DECAY_EVERY = 3;  // außerhalb der Strahlung sinkt die Dosis alle n Züge um 1
 const EXTINGUISHER_CHARGES = 3;
 
@@ -34,14 +35,14 @@ const O2_MAX = 100;
 const O2_SUFFOCATE_EVERY = 2; // ohne O₂: alle n Züge −1 ❤️
 
 const ENEMY_TYPES = {
-  drone: { emoji: E.drone, name: 'Sicherheitsdrohne', hp: 3, dmg: 1, hit: 0.75, sight: 8, alarm: true },
+  drone: { emoji: E.drone, name: 'Sicherheitsdrohne', hp: 4, dmg: 1, hit: 0.8, sight: 8, alarm: true },
   // Sporen bewegen sich nicht, greifen nur Nachbarfelder an und vermehren sich
   // Aliens schlafen nie, sind zäh und treffen hart
-  alien: { emoji: E.alien, name: 'Alien', hp: 4, dmg: 2, hit: 0.65, sight: 7, alarm: true, modes: { patrol: 0.55, guard: 0.45 } },
+  alien: { emoji: E.alien, name: 'Alien', hp: 5, dmg: 2, hit: 0.75, sight: 7, alarm: true, modes: { patrol: 0.55, guard: 0.45 } },
   // Boss: bewacht den Antrieb, Tentakel reichen 2 Felder weit, schickt 🦑 los
-  boss: { emoji: E.boss, name: 'Tentakelmonster', hp: 18, dmg: 2, hit: 0.6, sight: 7, boss: true, reach: 2, noDrop: true },
-  tentacle: { emoji: E.tentacle, name: 'Tentakel', hp: 1, dmg: 1, hit: 0.6, sight: 8, noDrop: true },
-  spore: { emoji: E.spore, name: 'Sporenkolonie', hp: 1, dmg: 1, hit: 0.6, sight: 1, static: true, spread: 0.022 },
+  boss: { emoji: E.boss, name: 'Tentakelmonster', hp: 26, dmg: 2, hit: 0.7, sight: 7, boss: true, reach: 2, noDrop: true },
+  tentacle: { emoji: E.tentacle, name: 'Tentakel', hp: 2, dmg: 1, hit: 0.7, sight: 8, noDrop: true },
+  spore: { emoji: E.spore, name: 'Sporenkolonie', hp: 1, dmg: 1, hit: 0.7, sight: 1, static: true, spread: 0.03 },
 };
 
 // Hindernisse im Raum. Alle blockieren Bewegung und Schüsse, aber nicht die Sicht.
@@ -53,6 +54,11 @@ const PROPS = {
   sprout:   { emoji: '🌱',       name: 'Setzling',    scale: 0.62 },
   o2:       { emoji: E.o2,       name: 'O₂-Station',  scale: 0.75 },
   elevator: { emoji: E.elevator, name: 'Aufzug',      scale: 0.85 },
+  // Brücke
+  labterm:  { emoji: '🔬',       name: 'Forschungsterminal', scale: 0.8 },
+  hublift:  { emoji: E.elevator, name: 'Aufzug',      scale: 0.85 },
+  shipinfo: { emoji: E.terminal, name: 'Bordcomputer', scale: 0.72 },
+  chair:    { emoji: '💺',       name: 'Kommandosessel', scale: 0.8 },
   barrel:   { emoji: '🛢️',       name: 'Kühlmittelfass', scale: 0.72 },
   cooler:   { emoji: '🧊',       name: 'Kühlaggregat', scale: 0.68 },
   rack:     { emoji: '🗄️',       name: 'Waffenschrank', scale: 0.75 },
@@ -60,7 +66,7 @@ const PROPS = {
 
 // Raumtypen: eigener Boden, eigene Hindernisse. `scatter` = frei im Raum statt an der Wand.
 const ROOM_THEMES = {
-  bruecke:   { name: 'Brücke',              icon: E.terminal, floor: ['#15203a', '#182440'], props: { terminal: [1, 1] } },
+  bruecke:   { name: 'Offiziersdeck',       icon: E.terminal, floor: ['#15203a', '#182440'], props: { terminal: [1, 1] } },
   generator: { name: 'Schildgenerator',     icon: E.generator, floor: ['#122429', '#15292f'], props: {}, bolts: 0.1 },
   lager:     { name: 'Lagerraum',           icon: E.crate,    floor: ['#221e18', '#26211a'], props: { crate: [2, 4] }, scatter: true },
   kontroll:  { name: 'Kontrollraum',        icon: E.terminal, floor: ['#15203a', '#182440'], props: { terminal: [1, 2] } },
@@ -73,6 +79,7 @@ const ROOM_THEMES = {
   hangar:    { name: 'Sicherheitsposten',   icon: E.terminal, floor: ['#1e1c26', '#22202b'], props: { terminal: [1, 1], crate: [0, 1] } },
   waffen:    { name: 'Waffensysteme',       icon: E.weapons,  floor: ['#261a14', '#2b1e17'], props: {}, bolts: 0.1 },
   armory:    { name: 'Waffenkammer',        icon: E.lock,     floor: ['#2a1618', '#2f191b'], props: { rack: [2, 3] } },
+  hub:       { name: 'Brücke',              icon: '🧑‍🚀',     floor: ['#16233f', '#1a2847'], props: {} },
   leitstand: { name: 'Leitstand',           icon: E.terminal, floor: ['#1a1d2a', '#1e2130'], props: { terminal: [1, 1] } },
   antrieb:   { name: 'Antrieb',             icon: E.drive,    floor: ['#2a1f12', '#2f2314'], props: {}, bolts: 0.14 },
   reaktor:   { name: 'Reaktorraum',         icon: E.rad,      floor: ['#15220f', '#182612'], props: { barrel: [1, 3] }, radiation: true },
@@ -108,11 +115,11 @@ const DECKS = [
     w: 50, h: 30, maxRooms: 10,
     startTheme: 'bruecke', stationTheme: 'generator',
     themes: ['lager', 'lager', 'kontroll', 'quartier', 'technik', 'messe'],
-    enemies: { drone: [5, 7] },
+    enemies: { drone: [6, 8] },
     // Verhalten der Drohnen: schlafend 💤, patrouillierend, bewachend
-    modes: { sleep: 0.35, patrol: 0.3, guard: 0.35 },
-    items: { medkit: [1, 2], battery: [2, 3] },
-    crateLoot: { battery: 0.3, medkit: 0.15, core: 0.12 },
+    modes: { sleep: 0.25, patrol: 0.4, guard: 0.35 },
+    items: { medkit: [0, 1], battery: [1, 2] },
+    crateLoot: { battery: 0.25, medkit: 0.1, core: 0.15 },
     goalItem: 'wrench', station: 'generator', goalMinRooms: 3,
     intro: 'Finde das 🔧 und bring es zum 🛡️ Schildgenerator.',
     briefing: {
@@ -132,12 +139,12 @@ const DECKS = [
     w: 50, h: 30, maxRooms: 10,
     startTheme: 'schleuse', stationTheme: 'lifesupp',
     themes: ['hydro', 'hydro', 'quartier', 'technik', 'lager', 'messe', 'kontroll'],
-    enemies: { drone: [3, 4], spore: [3, 4] },
-    modes: { sleep: 0.3, patrol: 0.35, guard: 0.35 },
-    items: { medkit: [1, 2], battery: [2, 3] },
-    crateLoot: { battery: 0.3, medkit: 0.2, core: 0.12 },
+    enemies: { drone: [4, 5], spore: [4, 5] },
+    modes: { sleep: 0.25, patrol: 0.4, guard: 0.35 },
+    items: { medkit: [0, 1], battery: [1, 2] },
+    crateLoot: { battery: 0.25, medkit: 0.12, core: 0.15 },
     goalItem: 'wrench', station: 'lifesupport', goalMinRooms: 3,
-    oxygen: { drain: 0.35, perLeak: 0.15, stations: [3, 4], leaks: [4, 6], sporeCap: 30 },
+    oxygen: { drain: 0.45, perLeak: 0.2, stations: [2, 3], leaks: [5, 7], sporeCap: 40 },
     intro: 'O₂ wird knapp! 💨 Lecks abdichten, an 🫧 tanken, 🔧 zur 🫁 bringen.',
     briefing: {
       messages: [
@@ -155,10 +162,10 @@ const DECKS = [
     w: 52, h: 30, maxRooms: 11,
     startTheme: 'hangar', stationTheme: 'waffen',
     themes: ['nest', 'nest', 'lager', 'kontroll', 'quartier', 'technik', 'messe'],
-    enemies: { drone: [3, 4], alien: [4, 5] },
-    modes: { sleep: 0.3, patrol: 0.35, guard: 0.35 },
-    items: { medkit: [1, 2], battery: [2, 3] },
-    crateLoot: { battery: 0.3, medkit: 0.2, core: 0.12 },
+    enemies: { drone: [4, 5], alien: [5, 6] },
+    modes: { sleep: 0.2, patrol: 0.45, guard: 0.35 },
+    items: { medkit: [1, 1], battery: [1, 2] },
+    crateLoot: { battery: 0.25, medkit: 0.12, core: 0.15 },
     goalItem: 'wrench', station: 'weapons', goalMinRooms: 3,
     // Das Zielitem liegt in der verschlossenen Waffenkammer – die Keycard liegt woanders
     armory: { loot: ['vest', 'battery', 'battery', 'medkit', 'core'] },
@@ -179,14 +186,14 @@ const DECKS = [
     w: 52, h: 30, maxRooms: 11,
     startTheme: 'leitstand', stationTheme: 'antrieb',
     themes: ['reaktor', 'reaktor', 'maschinen', 'maschinen', 'kuehlung', 'lager', 'technik'],
-    enemies: { drone: [2, 3], alien: [2, 3] },
-    modes: { sleep: 0.3, patrol: 0.35, guard: 0.35 },
-    items: { medkit: [2, 2], battery: [2, 3], extinguisher: [1, 2] },
-    crateLoot: { battery: 0.3, medkit: 0.2, core: 0.12 },
+    enemies: { drone: [3, 4], alien: [3, 4] },
+    modes: { sleep: 0.2, patrol: 0.45, guard: 0.35 },
+    items: { medkit: [1, 1], battery: [1, 2], extinguisher: [1, 1] },
+    crateLoot: { battery: 0.25, medkit: 0.12, core: 0.15 },
     goalItem: 'wrench', station: 'drive', goalMinRooms: 3,
     final: true,
     boss: 'boss',
-    fire: { sources: [3, 4], spread: 0.05, burn: [16, 24], cap: 50, shortEvery: [20, 30] },
+    fire: { sources: [4, 5], spread: 0.07, burn: [16, 24], cap: 60, shortEvery: [15, 24] },
     intro: 'Finale! 🔥 Feuer, ☢️ Strahlung und das 🐙 Tentakelmonster vor dem ⚙️ Antrieb.',
     briefing: {
       messages: [
@@ -215,17 +222,19 @@ const ITEMS = {
 // Reparatur-Droide (Labor-Upgrade)
 const DROID = { hp: 6, dmg: 1, hit: 0.85, healEvery: 15, leash: 5 };
 
-const CORE_DROP = 0.35;    // Chance, dass eine Drohne einen 💾 fallen lässt
-const CORES_PER_STATION = 3;
+const CORE_DROP = 0.45;    // Chance, dass eine Drohne einen 💾 fallen lässt
+const CORES_PER_STATION = 4;
 
 // Upgrades bewusst klein halten, damit das Spiel nicht zu leicht wird
 const UPGRADES = [
-  { id: 'hp',      icon: '❤️', name: 'Verstärkter Anzug',     costs: [4, 6, 8, 10, 12], desc: () => '+1 max. ❤️ pro Stufe' },
-  { id: 'medkit',  icon: '🩹', name: 'Notfallpaket',          costs: [6, 12],           desc: () => 'Start mit einem 🩹 Medkit pro Stufe' },
-  { id: 'ammo',    icon: '🔋', name: 'Größere Energiezellen', costs: [5, 8, 12],        desc: () => '+2 🔋 Startmunition pro Stufe' },
+  { id: 'hp',      icon: '❤️', name: 'Verstärkter Anzug',     costs: [5, 8, 12, 16, 22], desc: () => '+2 max. ❤️ pro Stufe' },
+  { id: 'medkit',  icon: '🩹', name: 'Notfallpaket',          costs: [6, 10, 16],        desc: () => 'Start mit einem 🩹 Medkit pro Stufe' },
+  { id: 'ammo',    icon: '🔋', name: 'Größere Energiezellen', costs: [5, 9, 14],         desc: () => '+2 🔋 Startmunition pro Stufe' },
+  { id: 'blaster', icon: '🔫', name: 'Blaster-Tuning',        costs: [10, 20],           desc: () => '+1 Blaster-Schaden pro Stufe' },
+  { id: 'melee',   icon: '🦾', name: 'Servo-Handschuhe',      costs: [8, 16],            desc: () => '+1 Nahkampf-Schaden pro Stufe' },
   { id: 'scanner', icon: '📡', name: 'Scanner',               costs: [8, 16],
     desc: lvl => lvl < 1 ? 'Markiert beim Betreten eines Decks Station und Aufzug' : 'Zeigt beim Betreten eines Decks den ganzen Plan' },
-  { id: 'droid',   icon: '🤖', name: 'Reparatur-Droide',      costs: [30],
+  { id: 'droid',   icon: '🤖', name: 'Reparatur-Droide',      costs: [25],
     desc: () => 'Begleiter: kämpft mit und repariert dich, wenn er neben dir steht' },
 ];
 
@@ -284,14 +293,20 @@ function rollTable(table) {
 let G = null;        // aktueller Run
 let state = 'title'; // title | play | travel | dead | won
 
+// Frischer Captain mit allen Labor-Upgrades
+function makePlayer() {
+  const maxHp = PLAYER_BASE.maxHp + 2 * Meta.level('hp');
+  return { x: 0, y: 0, hp: maxHp, maxHp,
+           ammo: PLAYER_BASE.ammo + 2 * Meta.level('ammo'), medkits: Meta.level('medkit'), hasTool: false, face: [1, 0],
+           bonuses: new Set(), shieldReady: false, shieldTimer: 0, o2: O2_MAX };
+}
+
 function newRun(deckIndex = 0) {
   G = {
     deckIndex,
     turn: 0,
     runCores: 0,
-    player: { x: 0, y: 0, hp: PLAYER_BASE.maxHp + Meta.level('hp'), maxHp: PLAYER_BASE.maxHp + Meta.level('hp'),
-              ammo: PLAYER_BASE.ammo + 2 * Meta.level('ammo'), medkits: Meta.level('medkit'), hasTool: false, face: [1, 0],
-              bonuses: new Set(), shieldReady: false, shieldTimer: 0, o2: O2_MAX },
+    player: makePlayer(),
     log: [],
     effects: [],
     shake: { until: 0, mag: 0 },
@@ -305,6 +320,167 @@ function grantBonus(bonus) {
   const p = G.player;
   p.bonuses.add(bonus);
   if (bonus === 'shield') { p.shieldReady = true; p.shieldTimer = 0; }
+}
+
+// ---------- Die Brücke: Heimatbasis zwischen den Durchläufen ----------
+const HUB = { id: 0, name: 'Brücke', icon: '🧑‍🚀', hub: true };
+
+// Feste Karte: . Boden, # Wand, L Forschungslabor, A Aufzug, B Bordcomputer, C Kommandosessel, P Pflanze, T Transporter (Startpunkt)
+// genau ein Bildschirm groß (15 × 9), damit man alles auf einen Blick sieht
+const BRIDGE_MAP = [
+  '###############',
+  '#P.B..B..B...L#',
+  '#.............#',
+  '#.............#',
+  '#.....C.......#',
+  '#.............#',
+  '#.T........A..#',
+  '#P...........P#',
+  '###############',
+];
+
+function newHub() {
+  G = { deckIndex: -1, hub: true, turn: 0, runCores: 0, player: makePlayer(), log: [], effects: [], shake: { until: 0, mag: 0 } };
+  const h = BRIDGE_MAP.length, w = BRIDGE_MAP[0].length;
+  const tiles = new Uint8Array(w * h), roomAt = new Int16Array(w * h).fill(-1);
+  Object.assign(G, {
+    cfg: HUB, w, h, tiles, roomAt,
+    rooms: [{ x: 1, y: 1, w: w - 2, h: h - 2, cx: w >> 1, cy: h >> 1, theme: 'hub' }],
+    enemies: [], items: new Map(), props: new Map(), deco: new Map(), leaks: new Map(),
+    station: null, droid: null, fire: new Map(), ash: new Map(), rad: new Uint8Array(w * h), boss: null,
+    armoryRoom: -1, elevator: null, elevatorRoom: -1, visitedRooms: new Set([0]),
+    explored: new Uint8Array(w * h), visible: new Uint8Array(w * h), fade: new Float32Array(w * h),
+  });
+  const PROP_OF = { L: 'labterm', A: 'hublift', B: 'shipinfo', C: 'chair', P: 'plant' };
+  const LABEL = { labterm: 'Labor', hublift: 'Deck 1' };
+  BRIDGE_MAP.forEach((row, y) => [...row].forEach((ch, x) => {
+    const i = y * w + x;
+    tiles[i] = ch === '#' ? T.WALL : T.FLOOR;
+    if (ch !== '#') roomAt[i] = 0;
+    if (PROP_OF[ch]) G.props.set(i, { type: PROP_OF[ch], x, y, hp: 0, label: LABEL[PROP_OF[ch]] });
+    if (ch === 'T') { G.deco.set(i, 'pad'); G.player.x = G.player.rx = x; G.player.y = G.player.ry = y; }
+  }));
+  const p = G.player;
+  if (Meta.level('droid')) G.droid = { x: p.x + 1, y: p.y, rx: p.x + 1, ry: p.y, hp: DROID.hp, maxHp: DROID.hp, healTimer: 0 };
+  updateFov();
+}
+
+// Upgrades gekauft: der Captain auf der Brücke bekommt die neuen Werte sofort
+function refreshHubPlayer() {
+  if (!G || !G.hub) return;
+  const old = G.player, p = makePlayer();
+  Object.assign(p, { x: old.x, y: old.y, rx: old.rx, ry: old.ry, face: old.face });
+  G.player = p;
+  if (Meta.level('droid') && !G.droid) {
+    const spot = Object.values(DIRS).map(([dx, dy]) => ({ x: p.x + dx, y: p.y + dy })).find(q => passable(q.x, q.y) && !occupied(q.x, q.y));
+    if (spot) {
+      G.droid = { x: spot.x, y: spot.y, rx: spot.x, ry: spot.y, hp: DROID.hp, maxHp: DROID.hp, healTimer: 0 };
+      sparks(spot.x, spot.y, '#4fd1ff', 16);
+      addLog('🤖 Der Reparatur-Droide ist einsatzbereit und folgt dir.');
+    }
+  }
+}
+
+// Was Funke sagt, wenn man auf der Brücke ankommt
+function hubMessages(reason, info = {}) {
+  const cores = `${E.core} ${Meta.data.cores}`;
+  if (reason === 'intro') return [
+    'Captain! Endlich sind Sie wach. Hier Funke, Chefingenieur. Wir hatten einen Zusammenstoß – das Schiff ist ein Wrack.',
+    'Vier Systeme sind ausgefallen: 🛡️ Schilde, 🫁 Lebenserhaltung, 🎯 Waffen und ⚙️ der Antrieb. Ich sitze unten im Maschinenraum fest.',
+    'Sie sind auf der Brücke – dem einzigen sicheren Ort an Bord. Wenn es da unten brenzlig wird, holt Sie unser 🌀 Notfall-Transporter hierher zurück.',
+    'Am 🔬 Forschungsterminal stecken Sie 💾 Datenkerne in bessere Ausrüstung. Ehrlich, Captain: Ohne Upgrades kommen Sie da unten nicht weit.',
+    'Wenn Sie bereit sind, bringt Sie der 🛗 Aufzug zu Deck 1. Funke Ende.',
+  ];
+  if (reason === 'death') return [
+    'Captain?! … Puh. Das war knapp – ich konnte Sie gerade noch mit dem 🌀 Notfall-Transporter auf die Brücke holen.',
+    `Sie haben ${E.core} ${info.cores || 0} Datenkerne mitgebracht${info.deck ? ` und es bis Deck ${info.deck} geschafft` : ''}. Die Decks haben sich wieder verriegelt – wir fangen von vorn an.`,
+    `Im Labor liegen jetzt ${cores}. Rüsten Sie sich am 🔬 Forschungsterminal auf, dann versuchen wir es nochmal. Funke Ende.`,
+  ];
+  if (reason === 'abort') return [
+    'Rückzug auf die Brücke – vernünftig, Captain. Die Decks verriegeln sich, wir fangen von vorn an.',
+    `Im Labor liegen ${cores}. Rüsten Sie auf und versuchen Sie es erneut.`,
+  ];
+  if (reason === 'win') return [
+    'Das Schiff fliegt wieder, Captain! Aber irgendwas geht auf diesem Kahn immer kaputt …',
+    'Die Decks sind neu verriegelt. Lust auf eine weitere Runde? Der 🛗 Aufzug wartet.',
+  ];
+  return [
+    'Willkommen zurück auf der Brücke, Captain. Hier Funke.',
+    `Im Labor liegen ${cores}. 🔬 Forschungsterminal oder direkt zum 🛗 Aufzug – Sie entscheiden.`,
+  ];
+}
+
+function goToBridge(reason, info) {
+  Title.hide();
+  Outro.hide();
+  ['screen', 'lab', 'pause', 'briefing'].forEach(id => document.getElementById(id).classList.add('hidden'));
+  newHub();
+  if (reason === 'intro') { Meta.data.introSeen = true; Meta.save(); }
+  Sound.unlock();
+  Sound.music('title');
+  renderHud();
+  resize();
+  showComms({
+    label: '🧑‍🚀 Brücke · sicherer Bereich',
+    messages: hubMessages(reason, info),
+    footer: `${E.core} ${Meta.data.cores} Datenkerne im Labor`,
+  });
+}
+
+// Mit dem Aufzug von der Brücke zu Deck 1 – ein neuer Durchlauf beginnt
+function startDeckRun() {
+  state = 'travel';
+  Sound.play('elevator');
+  const first = DECKS[START_DECK];
+  const banner = document.getElementById('banner');
+  document.getElementById('banner-title').textContent = `${first.icon} Deck ${first.id}: ${first.name}`;
+  banner.classList.add('show');
+  setTimeout(() => {
+    Meta.data.runs++;
+    Meta.save();
+    newRun(START_DECK);
+    Sound.music('game', G.deckIndex);
+    renderHud();
+    resize();
+  }, 700);
+  setTimeout(() => {
+    banner.classList.remove('show');
+    showBriefing();
+    requestRender();
+  }, 1800);
+}
+
+// Tod: der Notfall-Transporter holt den Captain auf die Brücke
+function teleportToBridge() {
+  const info = { cores: G.runCores, deck: G.cfg.id };
+  state = 'travel';
+  const banner = document.getElementById('banner');
+  document.getElementById('banner-title').textContent = '🌀 Notfall-Transporter aktiviert …';
+  banner.classList.add('show');
+  Sound.play('teleport');
+  setTimeout(() => goToBridge('death', info), 900);
+  setTimeout(() => banner.classList.remove('show'), 2100);
+}
+
+const BRIDGE_INFO = [
+  () => '🖥️ Logbuch: „Kollision mit unbekanntem Objekt. Hüllenbruch auf allen Decks. Crew evakuiert.“',
+  () => `🖥️ Einsätze: ${Meta.data.runs} · Bestes Deck: ${Meta.data.bestDeck || '–'} · Schiff gerettet: ${Meta.data.wins}×`,
+  () => '🖥️ Schiffsstatus: 🛡️ offline · 🫁 offline · 🎯 offline · ⚙️ offline',
+  () => `🖥️ 🌀 Notfall-Transporter: bereit. Datenkerne im Labor: ${E.core} ${Meta.data.cores}`,
+];
+
+function useHubProp(prop) {
+  if (prop.type === 'labterm') { Sound.play('beep'); showLab(); return false; }
+  if (prop.type === 'hublift') { startDeckRun(); return false; }
+  if (prop.type === 'shipinfo') {
+    Sound.play('beep');
+    G.infoIdx = ((G.infoIdx ?? -1) + 1) % BRIDGE_INFO.length;
+    addLog(BRIDGE_INFO[G.infoIdx]());
+    return false;
+  }
+  if (prop.type === 'chair') { Sound.play('bump'); addLog('💺 Ihr Kommandosessel. Keine Zeit zum Sitzen, Captain!'); return false; }
+  Sound.play('bump');
+  return false;
 }
 
 // ---------- Deck-Generierung ----------
@@ -872,7 +1048,7 @@ function playerMove(dir) {
   const enemy = enemyAt(nx, ny);
   if (enemy) {
     bump(p, dx, dy);
-    damageEnemy(enemy, PLAYER_BASE.meleeDmg, 'Nahkampf');
+    damageEnemy(enemy, meleeDamage(), 'Nahkampf');
     return true;
   }
   const droid = droidAt(nx, ny);
@@ -913,10 +1089,11 @@ function useProp(prop, dx, dy) {
   const p = G.player;
   if (prop.type === 'crate') {
     bump(p, dx, dy);
-    damageProp(prop, PLAYER_BASE.meleeDmg);
+    damageProp(prop, meleeDamage());
     return true;
   }
   bump(p, dx, dy, 0.12);
+  if (G.hub) return useHubProp(prop);
   if (prop.type === 'terminal') { useTerminal(prop); return false; }
   if (prop.type === 'o2') return useO2Station(prop);
   if (prop.type === 'elevator') { useElevator(); return false; }
@@ -1145,7 +1322,11 @@ function playerShoot() {
 }
 
 function blasterDamage() {
-  return PLAYER_BASE.blasterDmg + (G.player.bonuses.has('blaster') ? 1 : 0);
+  return PLAYER_BASE.blasterDmg + Meta.level('blaster') + (G.player.bonuses.has('blaster') ? 1 : 0);
+}
+
+function meleeDamage() {
+  return PLAYER_BASE.meleeDmg + Meta.level('melee');
 }
 
 function playerUseItem() {
@@ -1182,7 +1363,7 @@ function damageEnemy(e, dmg, how) {
     Sound.music('game', G.deckIndex);
     addLog(`${E.boss} Das Tentakelmonster ist besiegt! Der Weg zum ${E.drive} Antrieb ist frei.`);
     radio('Unglaublich! Schnell, reparieren Sie den Antrieb!');
-    collectCores(5, e);
+    collectCores(8, e);
     G.enemies = G.enemies.filter(m => m.type !== 'tentacle' || (sparks(m.x, m.y, '#c77dff', 8), false));
     renderBossBar();
     return;
@@ -1236,7 +1417,7 @@ function bossAct(b, t, d) {
   }
   b.turns++;
   // regelmäßig einen Tentakel losschicken (höchstens 3 gleichzeitig)
-  if (b.turns % 6 === 0 && G.enemies.filter(e => e.type === 'tentacle').length < 3) {
+  if (b.turns % 5 === 0 && G.enemies.filter(e => e.type === 'tentacle').length < 3) {
     const spots = freeSteps(b);
     if (spots.length) {
       const [x, y] = pick(spots);
@@ -1563,8 +1744,8 @@ function act(action) {
       shake(10, 400);
       Sound.play('death');
       Sound.music(null);
-      addLog('☠️ Der Captain ist gefallen.');
-      setTimeout(() => showScreen('dead'), 900);
+      addLog('☠️ Der Captain ist gefallen …');
+      setTimeout(teleportToBridge, 1300);
     }
   }
   renderHud();
@@ -1755,6 +1936,7 @@ function render(now = performance.now()) {
   };
 
   const x0 = Math.floor(camX), y0 = Math.floor(camY);
+  const labels = [];
   for (let y = y0 - 1; y <= y0 + VIEW_H + 1; y++)
     for (let x = x0 - 1; x <= x0 + VIEW_W + 1; x++) {
       if (!inBounds(x, y)) continue;
@@ -1770,6 +1952,14 @@ function render(now = performance.now()) {
         if (t === T.DOOR) drawEmoji(E.door, mx(x), my(y), 0.75);
         if (t === T.LOCKED) drawEmoji(E.lock, mx(x), my(y), 0.72);
         const deco = G.deco.get(i);
+        if (deco === 'pad') {
+          // Notfall-Transporter
+          ctx.fillStyle = `rgba(120,200,255,${0.18 + Math.sin(now / 300) * 0.08})`;
+          ctx.beginPath();
+          ctx.ellipse(mx(x), my(y) + tile * 0.1, tile * 0.46, tile * 0.3, 0, 0, Math.PI * 2);
+          ctx.fill();
+          drawEmoji('🌀', mx(x), my(y) + tile * 0.1, 0.6, 0.55);
+        }
         if (deco === 'web') drawEmoji('🕸️', mx(x), my(y), 0.7, 0.35);
         if (deco === 'vent') drawVent(px(x), py(y));
         else if (deco === 'bolt') drawEmoji('🔩', px(x) + tile * 0.3, py(y) + tile * 0.7, 0.32, 0.45);
@@ -1781,7 +1971,16 @@ function render(now = performance.now()) {
             if (G.station.repaired) scale *= 1 + Math.sin(now / 250) * 0.06;
             else alpha = 0.45;
           }
+          if (pr.type === 'labterm' || pr.type === 'hublift') {
+            // leuchtender Ring um die wichtigen Brücken-Terminals
+            ctx.strokeStyle = `rgba(79,209,255,${0.45 + Math.sin(now / 350) * 0.2})`;
+            ctx.lineWidth = Math.max(1.5, tile * 0.05);
+            ctx.beginPath();
+            ctx.arc(mx(x), my(y), tile * 0.48, 0, Math.PI * 2);
+            ctx.stroke();
+          }
           drawEmoji(PROPS[pr.type].emoji, mx(x), my(y), scale, alpha);
+          if (pr.label) labels.push([pr.label, mx(x), py(y) - tile * 0.12]);
         }
         if (G.rad[i]) {
           // Strahlung: grünes Flimmern, ab und zu ein ☢️
@@ -1925,6 +2124,20 @@ function render(now = performance.now()) {
   }
 
   drawFog(x0, y0, px, py);
+
+  // Beschriftungen (Brücke)
+  if (labels.length) {
+    ctx.font = `700 ${Math.max(10, Math.round(tile * 0.3))}px system-ui, "Segoe UI", sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    for (const [text, lx, ly] of labels) {
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = 'rgba(0,0,0,0.85)';
+      ctx.strokeText(text, lx, ly);
+      ctx.fillStyle = '#9fe6ff';
+      ctx.fillText(text, lx, ly);
+    }
+  }
 
   // Effekte
   for (const f of G.effects) {
@@ -2088,7 +2301,7 @@ function renderHud() {
   const tool = document.getElementById('hud-tool');
   tool.textContent = p.hasTool ? `${E.wrench} ✔` : `${E.wrench} –`;
   tool.classList.toggle('got', p.hasTool);
-  document.getElementById('hud-cores').textContent = `${E.core} ${G.runCores}`;
+  document.getElementById('hud-cores').textContent = `${E.core} ${G.hub ? Meta.data.cores : G.runCores}`;
   const card = document.getElementById('hud-card');
   card.hidden = !(G.armoryRoom >= 0 && G.tiles.includes(T.LOCKED));
   card.textContent = p.hasKeycard ? `${E.keycard} ✔` : `${E.keycard} –`;
@@ -2107,7 +2320,10 @@ function renderHud() {
     droidHud.textContent = G.droid.hp > 0 ? `${E.drone} ${G.droid.hp}` : `${E.drone} ✖`;
     droidHud.classList.toggle('down', G.droid.hp <= 0);
   }
-  document.getElementById('hud-deck').innerHTML = `${G.cfg.icon} <span class="long">Deck </span>${G.cfg.id}`;
+  document.getElementById('hud-deck').innerHTML = G.hub
+    ? `${G.cfg.icon} <span class="long">Brücke</span>`
+    : `${G.cfg.icon} <span class="long">Deck </span>${G.cfg.id}`;
+  document.getElementById('hud-tool').hidden = !!G.hub;
 
   const shield = document.getElementById('hud-shield');
   shield.hidden = !p.bonuses.has('shield');
@@ -2246,14 +2462,18 @@ let comms = null;
 
 function showBriefing() {
   const cfg = G.cfg, b = cfg.briefing;
+  showComms({ label: `${cfg.icon} Deck ${cfg.id}/${DECKS.length} · ${cfg.name}`, messages: b.messages, footer: `🎁 ${b.reward}` });
+}
+
+function showComms({ label, messages, footer }) {
   state = 'briefing';
-  document.getElementById('comms-deck').textContent = `${cfg.icon} Deck ${cfg.id}/${DECKS.length} · ${cfg.name}`;
-  document.getElementById('brief-reward').textContent = `🎁 ${b.reward}`;
+  document.getElementById('comms-deck').textContent = label;
+  document.getElementById('brief-reward').textContent = footer || '';
   document.getElementById('comms-msgs').replaceChildren();
   document.getElementById('brief-go').textContent = 'Weiter ▸▸';
   document.getElementById('briefing').classList.remove('hidden');
   clearTimeout(comms && comms.timer);
-  comms = { msgs: b.messages, i: 0, pos: 0, el: null, done: false, timer: 0 };
+  comms = { msgs: messages, i: 0, pos: 0, el: null, done: false, timer: 0 };
   comms.timer = setTimeout(typeComms, 450);
 }
 
@@ -2308,6 +2528,11 @@ function openPause() {
   if (state !== 'play' && state !== 'briefing') return;
   pausedFrom = state;
   state = 'paused';
+  const hub = G && G.hub;
+  document.getElementById('pause-quit').textContent = hub ? 'Zum Titelbild' : 'Run abbrechen';
+  document.getElementById('pause-text').textContent = hub
+    ? 'Du bist auf der Brücke in Sicherheit.'
+    : 'Wenn du abbrichst, holt dich der Transporter auf die Brücke – der Run ist dann verloren.';
   document.getElementById('pause').classList.remove('hidden');
 }
 
@@ -2322,7 +2547,8 @@ function closePause() {
 function quitRun() {
   document.getElementById('pause').classList.add('hidden');
   document.getElementById('briefing').classList.add('hidden');
-  showTitle();
+  if (G && G.hub) showTitle();
+  else goToBridge('abort');
 }
 
 function showTitle() {
@@ -2331,7 +2557,6 @@ function showTitle() {
   Sound.music('title');
   document.getElementById('screen').classList.add('hidden');
   document.getElementById('lab').classList.add('hidden');
-  document.getElementById('title-cores').textContent = `${E.core} ${Meta.data.cores}`;
   Title.show();
 }
 
@@ -2474,13 +2699,18 @@ const Outro = (() => {
 
 // ---------- Forschungslabor ----------
 function showLab() {
-  Outro.hide();
   state = 'lab';
-  Title.hide();
-  document.getElementById('screen').classList.add('hidden');
   document.getElementById('lab').classList.remove('hidden');
-  Sound.music('title');
   renderLab();
+}
+
+function closeLab() {
+  if (state !== 'lab') return;
+  document.getElementById('lab').classList.add('hidden');
+  state = 'play';
+  refreshHubPlayer();
+  renderHud();
+  requestRender();
 }
 
 function renderLab(boughtId) {
@@ -2524,21 +2754,11 @@ function renderLab(boughtId) {
   }));
 }
 
+// Vom Titelbild (oder nach dem Sieg) auf die Brücke
 function startRun() {
-  if (!['title', 'dead', 'won', 'lab'].includes(state)) return;
-  Sound.unlock();
-  Title.hide();
-  Outro.hide();
-  document.getElementById('lab').classList.add('hidden');
-  Meta.data.runs++;
-  Meta.save();
-  document.getElementById('screen').classList.add('hidden');
+  if (!['title', 'dead', 'won'].includes(state)) return;
   document.getElementById('screen-btn').blur();
-  newRun(START_DECK);
-  Sound.music('game', G.deckIndex);
-  showBriefing();
-  renderHud();
-  resize();
+  goToBridge(state === 'won' ? 'win' : Meta.data.introSeen ? 'return' : 'intro');
 }
 
 // ---------- Eingabe ----------
@@ -2574,8 +2794,11 @@ window.addEventListener('keydown', ev => {
   }
   if (state !== 'play') {
     const screenOpen = !document.getElementById('screen').classList.contains('hidden');
-    if (state === 'lab' && ev.code === 'Escape') { showTitle(); return; }
-    if ((ev.code === 'Enter' || ev.code === 'Space') && (screenOpen || Title.visible || state === 'lab')) {
+    if (state === 'lab') {
+      if (ev.code === 'Escape' || ev.code === 'Enter') { ev.preventDefault(); closeLab(); }
+      return;
+    }
+    if ((ev.code === 'Enter' || ev.code === 'Space') && (screenOpen || Title.visible)) {
       ev.preventDefault();
       startRun();
     } else if (ev.code === 'Escape' && screenOpen) {
@@ -2618,12 +2841,8 @@ document.getElementById('hud-sound').addEventListener('pointerdown', ev => { ev.
 document.getElementById('screen-btn').addEventListener('click', startRun);
 document.getElementById('screen-menu').addEventListener('click', showTitle);
 document.getElementById('outro-again').addEventListener('click', startRun);
-document.getElementById('outro-lab').addEventListener('click', showLab);
 document.getElementById('outro-title').addEventListener('click', showTitle);
-document.getElementById('screen-lab').addEventListener('click', showLab);
-document.getElementById('title-lab').addEventListener('click', showLab);
-document.getElementById('lab-back').addEventListener('click', showTitle);
-document.getElementById('lab-start').addEventListener('click', startRun);
+document.getElementById('lab-back').addEventListener('click', closeLab);
 // Zurücksetzen braucht einen zweiten Klick innerhalb von 4 Sekunden
 let resetTimer = 0;
 document.getElementById('lab-reset').addEventListener('click', ev => {
