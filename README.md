@@ -81,3 +81,8 @@ Nebel des Krieges, Permadeath, Animationen und Sounds.
 Musik und Schiffsgeräusche werden live im Browser erzeugt (`audio.js`), ganz ohne Audiodateien.
 
 Zum Testen: `index.html?deck=2`, `?deck=3` oder `?deck=4` startet direkt auf dem jeweiligen Deck.
+
+## Entwicklung
+
+Nach dem Klonen einmal `git config core.hooksPath .githooks` ausführen. Der Hook setzt bei jedem Commit
+eine neue Versionsnummer an CSS/JS in `index.html`, damit Browser nach Updates keine alten Dateien aus dem Cache laden.

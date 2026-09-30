@@ -1,0 +1,6 @@
+#!/bin/sh
+# Setzt bei jedem Commit eine neue Versionsnummer an CSS/JS in index.html,
+# damit Browser nach einem Update nicht alte Dateien aus dem Cache verwenden.
+v=$(date +%Y%m%d%H%M%S)
+sed -i -E "s/(style\.css|audio\.js|game\.js)\?v=[0-9]+/\1?v=$v/g" index.html
+git add index.html
