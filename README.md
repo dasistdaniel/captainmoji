@@ -50,6 +50,7 @@ Alle vier Decks sind spielbar – vom Schildgenerator bis zum Antrieb.
 **Deck 2 – 🫁 Lebenserhaltung**
 - 🫧 Sauerstoff sinkt jede Runde, 💨 Lecks lassen ihn schneller sinken – gegen das Leck laufen dichtet es ab
 - 🫧 O₂-Stationen füllen einmalig auf; ohne Sauerstoff verliert man ❤️
+- 🌱 Räume mit Pflanzen und ohne offenes Leck produzieren Sauerstoff – Lecks abdichten lohnt sich doppelt
 - 🦠 Sporen vermehren sich, je länger man trödelt
 - Belohnung: langsame ❤️-Regeneration
 
@@ -71,7 +72,7 @@ Alle vier Decks sind spielbar – vom Schildgenerator bis zum Antrieb.
 - 💾 Datenkerne: Gegner lassen sie fallen, Kisten enthalten sie, jede reparierte Station gibt +4, der Boss +8
 - Kerne bleiben nach dem Tod erhalten (im Browser gespeichert) und werden im Labor ausgegeben
 - Upgrades: ❤️ Verstärkter Anzug (+2 ❤️/Stufe), 🩹 Notfallpaket, 🔋 Größere Energiezellen,
-  🔫 Blaster-Tuning, 🦾 Servo-Handschuhe, 📡 Scanner
+  🔫 Blaster-Tuning, 🦾 Servo-Handschuhe, 🫧 Sauerstofftank, 📡 Scanner
 - 🤖 Reparatur-Droide (💾 25): folgt dem Captain, greift wache Gegner an, repariert alle 15 Züge +1 ❤️,
   wenn er neben dir steht; fällt er aus, wird er im nächsten Aufzug repariert. Hineinlaufen = Platz tauschen.
 

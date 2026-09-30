@@ -112,6 +112,8 @@ html, body {
 #hud-o2.low .bar i { background: #ffb14f; }
 #hud-o2.empty { color: var(--danger); font-weight: 700; animation: blink .8s infinite; }
 #hud-leaks.done { color: #8ef58e; }
+#hud-o2.regen { color: #8ef58e; }
+#hud-o2.regen .bar i { background: #6dff8a; }
 @keyframes blink { 50% { opacity: .35; } }
 
 /* Deck-Wechsel mit dem Aufzug */

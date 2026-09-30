@@ -31,7 +31,8 @@ const RAD_DECAY_EVERY = 3;  // außerhalb der Strahlung sinkt die Dosis alle n Z
 const EXTINGUISHER_CHARGES = 3;
 
 // Sauerstoff (Decks mit `oxygen`)
-const O2_MAX = 100;
+const O2_MAX = 100;           // Grundkapazität, der 🫧 Sauerstofftank aus dem Labor erhöht sie
+const O2_PLANT_GAIN = 0.8;    // so viel O₂ pro Zug geben Pflanzenräume ohne offenes Leck
 const O2_SUFFOCATE_EVERY = 2; // ohne O₂: alle n Züge −1 ❤️
 
 const ENEMY_TYPES = {
@@ -154,6 +155,7 @@ const DECKS = [
         'Gute Arbeit mit den Schilden, Captain! Aber wir haben das nächste Problem: Die 🫁 Lebenserhaltung ist ausgefallen.',
         'Der Sauerstoff sinkt mit jedem Schritt. Die 🫧 O₂-Stationen füllen Ihren Tank einmal komplett auf – gut einteilen!',
         'Überall zischen 💨 Lecks. Laufen Sie einfach dagegen, dann dichten Sie sie ab. Jedes Leck weniger spart Luft.',
+        'Gute Nachricht: In Räumen mit 🌱 Pflanzen produzieren die Grünlinge Sauerstoff – solange dort kein Leck ist.',
         'Und in den Lüftungen wächst etwas… 🦠 Sporen. Die bewegen sich nicht, aber sie vermehren sich. Nicht trödeln!',
         'Bringen Sie ein 🔧 zur Lebenserhaltung, dann atmen wir alle wieder leichter. Funke Ende.',
       ],
@@ -235,6 +237,7 @@ const UPGRADES = [
   { id: 'ammo',    icon: '🔋', name: 'Größere Energiezellen', costs: [5, 9, 14],         desc: () => '+2 🔋 Startmunition pro Stufe' },
   { id: 'blaster', icon: '🔫', name: 'Blaster-Tuning',        costs: [10, 20],           desc: () => '+1 Blaster-Schaden pro Stufe' },
   { id: 'melee',   icon: '🦾', name: 'Servo-Handschuhe',      costs: [8, 16],            desc: () => '+1 Nahkampf-Schaden pro Stufe' },
+  { id: 'o2tank',  icon: '🫧', name: 'Sauerstofftank',        costs: [6, 12],            desc: () => '+25 % O₂-Kapazität pro Stufe (Deck 2)' },
   { id: 'scanner', icon: '📡', name: 'Scanner',               costs: [8, 16],
     desc: lvl => lvl < 1 ? 'Markiert beim Betreten eines Decks Station und Aufzug' : 'Zeigt beim Betreten eines Decks den ganzen Plan' },
   { id: 'droid',   icon: '🤖', name: 'Reparatur-Droide',      costs: [25],
@@ -302,7 +305,8 @@ function makePlayer() {
   const maxHp = PLAYER_BASE.maxHp + 2 * Meta.level('hp');
   return { x: 0, y: 0, hp: maxHp, maxHp,
            ammo: PLAYER_BASE.ammo + 2 * Meta.level('ammo'), medkits: Meta.level('medkit'), hasTool: false, face: [1, 0],
-           bonuses: new Set(), shieldReady: false, shieldTimer: 0, o2: O2_MAX };
+           bonuses: new Set(), shieldReady: false, shieldTimer: 0,
+           o2Max: O2_MAX * (1 + 0.25 * Meta.level('o2tank')), o2: O2_MAX * (1 + 0.25 * Meta.level('o2tank')) };
 }
 
 function newRun(deckIndex = 0) {
@@ -512,7 +516,7 @@ function loadDeck(cfg) {
   p.y = p.ry = start.cy;
   p.hasTool = false;
   p.hasKeycard = false;
-  p.o2 = O2_MAX;
+  p.o2 = p.o2Max;
   p.rad = 0;
   p.extinguisher = 0;
   p.bump = null;
@@ -795,8 +799,21 @@ function placeLeaks(n) {
     const s = pick(spots);
     if (leaks.some(l => manhattan(l, s) < 5)) continue;
     leaks.push(s);
-    G.leaks.set(idx(s.x, s.y), { x: s.x, y: s.y, dir: s.dir, active: true });
+    G.leaks.set(idx(s.x, s.y), { x: s.x, y: s.y, dir: s.dir, active: true, room: G.roomAt[idx(s.x + s.dir[0], s.y + s.dir[1])] });
   }
+}
+
+// Pflanzenraum ohne offenes Leck: hier produzieren die Pflanzen Sauerstoff
+function hasPlants(ri) {
+  for (const pr of G.props.values()) if ((pr.type === 'plant' || pr.type === 'sprout') && G.roomAt[idx(pr.x, pr.y)] === ri) return true;
+  return false;
+}
+function roomLeaking(ri) {
+  for (const l of G.leaks.values()) if (l.active && l.room === ri) return true;
+  return false;
+}
+function oxygenRoom(ri) {
+  return ri >= 0 && hasPlants(ri) && !roomLeaking(ri);
 }
 
 function activeLeaks() {
@@ -1140,8 +1157,8 @@ function useO2Station(prop) {
   const p = G.player;
   if (prop.used) { Sound.play('deny'); addLog(`${E.o2} Diese O₂-Station ist leer.`); return false; }
   prop.used = true;
-  const gain = Math.round(O2_MAX - p.o2);
-  p.o2 = O2_MAX;
+  const gain = Math.round(p.o2Max - p.o2);
+  p.o2 = p.o2Max;
   sparks(prop.x, prop.y, '#8fd8ff', 14);
   floatText(p.x, p.y, `+${gain} O₂`, '#8fd8ff');
   Sound.play('o2');
@@ -1720,9 +1737,25 @@ function tickPlayer() {
   const ox = G.cfg.oxygen;
   if (!ox) return;
   const before = p.o2;
-  p.o2 = Math.max(0, p.o2 - (ox.drain + ox.perLeak * activeLeaks()));
-  if (before > 30 && p.o2 <= 30) { Sound.play('warn'); addLog(`${E.o2} Sauerstoff knapp! Such eine O₂-Station.`); }
-  if (before > 10 && p.o2 <= 10) { Sound.play('warn'); addLog(`${E.o2} Sauerstoff fast leer!`); }
+  const ri = G.roomAt[idx(p.x, p.y)];
+  p.o2Regen = oxygenRoom(ri);
+  if (p.o2Regen) {
+    // Pflanzen geben Sauerstoff zurück
+    p.o2 = Math.min(p.o2Max, p.o2 + O2_PLANT_GAIN);
+    if (G.turn % 4 === 0 && p.o2 < p.o2Max) floatText(p.x, p.y, '+O₂', '#8ef58e', 600);
+  } else {
+    p.o2 = Math.max(0, p.o2 - (ox.drain + ox.perLeak * activeLeaks()));
+  }
+  // einmalige Hinweise pro Raum
+  G.plantHint = G.plantHint || {};
+  if (ri >= 0 && hasPlants(ri) && G.plantHint[ri] !== p.o2Regen) {
+    G.plantHint[ri] = p.o2Regen;
+    if (p.o2Regen) addLog('🌱 Die Pflanzen hier produzieren Sauerstoff – dein O₂ füllt sich langsam auf.');
+    else radio('Da wachsen Pflanzen, aber ein 💨 Leck saugt den Sauerstoff ab. Dichten Sie es ab, dann wird der Raum zur Oase!');
+  }
+  const pct = v => (v / p.o2Max) * 100;
+  if (pct(before) > 30 && pct(p.o2) <= 30) { Sound.play('warn'); addLog(`${E.o2} Sauerstoff knapp! Such eine O₂-Station oder einen 🌱 Pflanzenraum.`); }
+  if (pct(before) > 10 && pct(p.o2) <= 10) { Sound.play('warn'); addLog(`${E.o2} Sauerstoff fast leer!`); }
   if (p.o2 <= 0) {
     p.o2Empty = (p.o2Empty || 0) + 1;
     if (p.o2Empty % O2_SUFFOCATE_EVERY === 0) {
@@ -2343,11 +2376,12 @@ function renderHud() {
   const o2 = document.getElementById('hud-o2'), leaks = document.getElementById('hud-leaks');
   o2.hidden = leaks.hidden = !ox;
   if (ox) {
-    const pct = Math.ceil(p.o2);
-    document.getElementById('hud-o2-val').textContent = pct;
+    const pct = Math.ceil((p.o2 / p.o2Max) * 100);
+    document.getElementById('hud-o2-val').textContent = Math.ceil(p.o2);
     document.getElementById('hud-o2-fill').style.width = pct + '%';
-    o2.classList.toggle('low', pct <= 30);
+    o2.classList.toggle('low', pct <= 30 && !p.o2Regen);
     o2.classList.toggle('empty', pct <= 0);
+    o2.classList.toggle('regen', !!p.o2Regen);
     const n = activeLeaks();
     leaks.textContent = `${E.leak} ${n}`;
     leaks.classList.toggle('done', n === 0);
