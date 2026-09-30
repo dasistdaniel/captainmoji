@@ -469,7 +469,12 @@ button {
 }
 .t-ship span { position: absolute; left: 0; top: 0; }
 .t-ship .ship { transform: rotate(45deg); }
-.t-ship .fire { font-size: .38em; left: -14%; top: 38%; animation: t-fire .35s steps(2) infinite; }
+/* Flamme zeigt nach hinten; eigene Animation, damit das Flackern die Drehung nicht überschreibt */
+.t-ship .fire { font-size: .38em; left: -23%; top: 28%; transform: rotate(-90deg); animation: t-fire-back .35s steps(2) infinite; }
+@keyframes t-fire-back {
+  0% { transform: rotate(-90deg) scale(1); }
+  100% { transform: rotate(-90deg) scale(.8, .9); }
+}
 .t-ship .smoke { font-size: .45em; left: -18%; top: 32%; opacity: 0; animation: t-smoke 2.4s linear infinite; }
 .t-ship .s2 { animation-delay: .8s; }
 .t-ship .s3 { animation-delay: 1.6s; }
