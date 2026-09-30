@@ -124,12 +124,11 @@ const DECKS = [
     intro: 'Finde das 🔧 und bring es zum 🛡️ Schildgenerator.',
     briefing: {
       messages: [
-        'Captain, hören Sie mich? Hier Funke, Chefingenieur – ich sitze unten im Maschinenraum fest.',
-        'Das Schiff ist ein Wrack, aber noch nicht verloren. Wir fangen mit den Schilden an: Der 🛡️ Schildgenerator ist auf Ihrem Deck.',
-        'Ohne 🔧 Werkzeug kriegen Sie den nicht repariert. Irgendwo auf dem Deck muss eins herumliegen.',
+        'Deck 1, Captain. Wir fangen mit den Schilden an – der 🛡️ Schildgenerator steht irgendwo auf diesem Deck.',
+        'Ohne 🔧 Werkzeug kriegen Sie ihn nicht repariert. Irgendwo hier muss eins herumliegen.',
         'Vorsicht, die 🤖 Sicherheitsdrohnen sind durchgedreht. Schlafende 💤 erwischen Sie mit einem Überraschungsangriff – doppelter Schaden!',
         'Die 🖥️ Terminals zeigen Ihnen die Richtung, und in 📦 Kisten finden Sie oft 🔋 oder 🩹.',
-        'Laufen die Schilde, hat der 🛗 Aufzug wieder Strom. Viel Glück, Captain. Funke Ende.',
+        'Laufen die Schilde, bringt Sie der 🛗 Aufzug weiter nach unten. Viel Glück, Captain. Funke Ende.',
       ],
       reward: '🛡️ Schild: fängt regelmäßig einen Treffer ab.',
     },
