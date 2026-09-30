@@ -646,16 +646,22 @@ button {
   filter: drop-shadow(0 0 20px rgba(255, 150, 60, .4));
 }
 #outro-ship .rocket { display: inline-block; transform: rotate(45deg); }
+/* Flamme zeigt nach hinten (links); eigene Animation, damit das Flackern die Drehung nicht überschreibt */
 #outro-ship .flame {
   position: absolute;
-  left: -.42em; top: .32em;
+  /* left/top in em der Flamme selbst – sitzt so direkt am Heck */
+  left: -.76em; top: .74em;
   font-size: .42em;
   transform: rotate(-90deg);
-  animation: t-fire .2s steps(2) infinite;
+  animation: outro-fire .2s steps(2) infinite;
+}
+@keyframes outro-fire {
+  0% { transform: rotate(-90deg) scale(1); }
+  100% { transform: rotate(-90deg) scale(.8, .9); }
 }
 @keyframes outro-bob { 50% { margin-top: -14px; } }
 #outro.warp #outro-ship { left: 110%; transform: scale(.05); opacity: 0; animation: none; }
-#outro.warp #outro-ship .flame { font-size: .9em; left: -.95em; top: .15em; }
+#outro.warp #outro-ship .flame { font-size: .9em; left: -.86em; top: .08em; }
 
 .outro-comms {
   position: absolute;
